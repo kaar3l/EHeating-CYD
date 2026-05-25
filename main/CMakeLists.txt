@@ -1,0 +1,28 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "nvs_config.c"
+        "wifi_manager.c"
+        "dns_server.c"
+        "web_server.c"
+        "mqtt_manager.c"
+        "ds18b20.c"
+        "relay_control.c"
+        "display.c"
+        "ota_manager.c"
+    INCLUDE_DIRS "."
+    REQUIRES
+        nvs_flash
+        esp_wifi
+        esp_netif
+        esp_http_server
+        mqtt
+        driver
+        esp_lcd
+        esp_ota_ops
+        app_update
+        freertos
+        log
+        lwip
+        spi_flash
+)

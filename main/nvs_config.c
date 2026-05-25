@@ -1,0 +1,101 @@
+#include <string.h>
+#include "esp_log.h"
+#include "nvs_flash.h"
+#include "nvs.h"
+#include "nvs_config.h"
+
+static const char *TAG = "nvs_cfg";
+#define NVS_NS "eheating"
+
+config_t g_cfg;
+
+void config_load_defaults(void)
+{
+    memset(&g_cfg, 0, sizeof(g_cfg));
+    g_cfg.mqtt_port       = 1883;
+    g_cfg.solar_threshold = 500.0f;
+    g_cfg.temp_min        = 55.0f;
+    g_cfg.temp_max        = 60.0f;
+    g_cfg.temp_safety     = 65.0f;
+    g_cfg.mqtt_enabled    = false;
+    g_cfg.relay2_manual   = false;
+    strncpy(g_cfg.mqtt_topic, "solar/power", sizeof(g_cfg.mqtt_topic) - 1);
+}
+
+esp_err_t config_load(void)
+{
+    config_load_defaults();
+
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NS, NVS_READONLY, &h);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGI(TAG, "no config in NVS, using defaults");
+        return ESP_OK;
+    }
+    if (err != ESP_OK) return err;
+
+#define LOAD_STR(key, dst) do { \
+    size_t len = sizeof(dst); \
+    nvs_get_str(h, key, dst, &len); \
+} while(0)
+
+#define LOAD_I32(key, dst) do { \
+    int32_t v; \
+    if (nvs_get_i32(h, key, &v) == ESP_OK) dst = (int)v; \
+} while(0)
+
+#define LOAD_FLT(key, dst) do { \
+    uint32_t raw; \
+    if (nvs_get_u32(h, key, &raw) == ESP_OK) memcpy(&dst, &raw, 4); \
+} while(0)
+
+#define LOAD_U8(key, dst) do { \
+    uint8_t v; \
+    if (nvs_get_u8(h, key, &v) == ESP_OK) dst = (bool)v; \
+} while(0)
+
+    LOAD_STR("wifi_ssid",  g_cfg.wifi_ssid);
+    LOAD_STR("wifi_pass",  g_cfg.wifi_pass);
+    LOAD_U8 ("mqtt_en",    g_cfg.mqtt_enabled);
+    LOAD_STR("mqtt_srv",   g_cfg.mqtt_server);
+    LOAD_I32("mqtt_port",  g_cfg.mqtt_port);
+    LOAD_STR("mqtt_topic", g_cfg.mqtt_topic);
+    LOAD_FLT("solar_thr",  g_cfg.solar_threshold);
+    LOAD_FLT("temp_min",   g_cfg.temp_min);
+    LOAD_FLT("temp_max",   g_cfg.temp_max);
+    LOAD_FLT("temp_safe",  g_cfg.temp_safety);
+    LOAD_U8 ("rly2_man",   g_cfg.relay2_manual);
+
+    nvs_close(h);
+    ESP_LOGI(TAG, "config loaded");
+    return ESP_OK;
+}
+
+esp_err_t config_save(void)
+{
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NS, NVS_READWRITE, &h);
+    if (err != ESP_OK) return err;
+
+#define SAVE_STR(key, src) nvs_set_str(h, key, src)
+#define SAVE_I32(key, val) nvs_set_i32(h, key, (int32_t)(val))
+#define SAVE_FLT(key, val) do { uint32_t raw; float _v=(val); memcpy(&raw,&_v,4); nvs_set_u32(h,key,raw); } while(0)
+#define SAVE_U8(key, val)  nvs_set_u8(h, key, (uint8_t)(val))
+
+    SAVE_STR("wifi_ssid",  g_cfg.wifi_ssid);
+    SAVE_STR("wifi_pass",  g_cfg.wifi_pass);
+    SAVE_U8 ("mqtt_en",    g_cfg.mqtt_enabled);
+    SAVE_STR("mqtt_srv",   g_cfg.mqtt_server);
+    SAVE_I32("mqtt_port",  g_cfg.mqtt_port);
+    SAVE_STR("mqtt_topic", g_cfg.mqtt_topic);
+    SAVE_FLT("solar_thr",  g_cfg.solar_threshold);
+    SAVE_FLT("temp_min",   g_cfg.temp_min);
+    SAVE_FLT("temp_max",   g_cfg.temp_max);
+    SAVE_FLT("temp_safe",  g_cfg.temp_safety);
+    SAVE_U8 ("rly2_man",   g_cfg.relay2_manual);
+
+    err = nvs_commit(h);
+    nvs_close(h);
+    ESP_LOGI(TAG, "config saved");
+    return err;
+}
