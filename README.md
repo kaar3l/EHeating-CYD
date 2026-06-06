@@ -1,35 +1,33 @@
-# EHeating — ESP32-S3 Solar Water Heater Controller
+# EHeating CYD — Solar Water Heater Controller
 
-ESP-IDF firmware for the **Guition ESP32-S3-4848S040** (480×480 capacitive touch display) that controls electric water heater relays based on solar panel output power and water temperature.
+ESP-IDF firmware for the **ESP32-2432S028** ("Cheap Yellow Display") that controls an electric water heater relay based on solar panel output power and water temperature.
 
 ## Features
 
-- **WiFi captive portal** — first-boot AP mode with auto-opening config page (Android, iOS, Windows detected)
+- **WiFi captive portal** — first-boot AP mode with auto-opening config page (Android, iOS, Windows)
 - **MQTT solar power input** — subscribes to configurable topic, computes 10-minute rolling average
 - **Temperature hysteresis** — Sensor1 controls Relay1 in 55–60 °C band (both limits configurable)
 - **Safety lockout** — Sensor2 triggers permanent relay-off if temperature exceeds limit (default 65 °C)
 - **Web UI** — status dashboard (auto-refresh), WiFi setup, MQTT config, settings, Relay2 manual toggle
 - **OTA firmware update** — upload `.bin` via browser
-- **480×480 LCD** — live status display: both temps, solar power, relay states, WiFi/MQTT indicators
+- **320×240 ILI9341 LCD** — live status: temps, solar power vs threshold, relay states, WiFi/MQTT/RSSI/IP
 
 ## Hardware
 
 | Item | Details |
 |------|---------|
-| Board | Guition ESP32-S3-4848S040 |
-| Display | ST7701S 480×480 RGB, 16-bit parallel |
-| Backlight | GPIO38 (LEDC PWM) |
-| Temperature sensors | 2× DS18B20 on GPIO1 (1-Wire) |
-| Relay 1 | GPIO40, active LOW |
-| Relay 2 | GPIO2, active LOW |
-| PSRAM | 8 MB Octal 80 MHz |
+| Board | ESP32-2432S028 (ESP32-D0WD-V3, 4 MB flash) |
+| Display | ILI9341 2.8″ 320×240 TFT (SPI2) |
+| Temperature sensors | 2× DS18B20 on GPIO27 (1-Wire) |
+| Relay 1 | GPIO16, active LOW |
+| Relay 2 | GPIO4, active LOW |
 
 ### Wiring
 
 ```
-DS18B20 DATA  →  GPIO1  (add 4.7kΩ pull-up to 3.3V)
-Relay 1       →  GPIO40 (LOW = ON)
-Relay 2       →  GPIO2  (LOW = ON)
+DS18B20 DATA  →  GPIO27  (add 4.7 kΩ pull-up to 3.3 V)
+Relay 1       →  GPIO16  (LOW = ON)
+Relay 2       →  GPIO4   (LOW = ON)
 ```
 
 ## Control Logic
@@ -41,6 +39,8 @@ Turn ON  when: solar_10min_avg > threshold  AND  sensor1_temp < temp_max
 Turn OFF when: solar_10min_avg ≤ threshold  OR   sensor1_temp ≥ temp_max
 Resume   when: sensor1_temp < temp_min  (hysteresis — prevents relay chatter)
 ```
+
+> **Note:** The MQTT broker is expected to publish **negative watts** when panels are producing (e.g. `-1000` = 1000 W production). The firmware negates the value internally so all comparisons use positive numbers.
 
 ### Safety lockout
 
@@ -54,28 +54,26 @@ Manual on/off via the web UI. State persists across reboots (NVS).
 
 ### Requirements
 
-- [ESP-IDF v5.x](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/get-started/)
-- Target: `esp32s3`
+- [ESP-IDF v5.x](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/get-started/)
+- Target: `esp32`
 
 ### Build & Flash
 
 ```bash
-git clone https://github.com/kaar3l/EHeating-ESP32S3-ESPIDF.git
-cd EHeating-ESP32S3-ESPIDF
+git clone https://github.com/kaar3l/EHeating-CYD.git
+cd EHeating-CYD
 
-idf.py set-target esp32s3
 idf.py build
-idf.py flash monitor
+idf.py -p /dev/ttyUSB0 flash
 ```
 
 ### First Boot
 
 1. Device starts WiFi AP **`EHeating-Setup`** (open, no password)
-2. Connect phone/laptop to that network
-3. Config page opens automatically (captive portal)
-4. Enter your WiFi credentials → Save
-5. Device connects to your network and shuts down the AP
-6. Open `http://<device-ip>/` for the status dashboard
+2. Connect phone/laptop to that network — config page opens automatically
+3. Enter your WiFi credentials → Save
+4. Device connects to your network and shuts down the AP
+5. Open `http://<device-ip>/` for the status dashboard
 
 ## Web Interface
 
@@ -88,12 +86,30 @@ idf.py flash monitor
 | `/relay2` | Toggle Relay 2 manually |
 | `/ota` | Upload new firmware `.bin` |
 
+## LCD Display
+
+The status screen shows (updated every second, flicker-free):
+
+| Row | Content | Colour |
+|-----|---------|--------|
+| Title | `EHeating` + WiFi/MQTT indicators | Cyan / Green / Gray |
+| T1 | Water temperature (Sensor 1) | White / Red on error |
+| T2 | Safety temperature (Sensor 2) | Yellow / Red on error |
+| Solar | 10-min average solar power | Green if above threshold, Red if below |
+| Thr | Configured solar threshold | Yellow |
+| Relay1 | Heating relay state | Green ON / Red OFF |
+| Relay2 | Manual relay state | Green ON / Red OFF |
+| SSID | Connected WiFi network | Gray |
+| IP | Device IP address | Gray |
+| RSSI | WiFi signal strength (dBm) | Gray |
+| Lockout | Safety lockout banner (bottom) | Red when active |
+
 ## MQTT
 
-The device subscribes to a configurable topic and expects **plain-text float values** (watts):
+The device subscribes to a configurable topic and expects **plain-text float values** in watts (negative = producing):
 
 ```
-solar/power  →  "1250.5"
+solar/power  →  "-1250.5"   (means 1250.5 W being produced)
 ```
 
 The 10-minute rolling average is recomputed every second. Relay 1 activates when this average exceeds the configured threshold.
@@ -108,34 +124,34 @@ The 10-minute rolling average is recomputed every second. Relay 1 activates when
 | Safety temp (Sensor 2) | 65 °C |
 | MQTT port | 1883 |
 
-All values are configurable via `/settings` and `/mqtt` and stored in NVS flash.
+All values configurable via `/settings` and `/mqtt`, stored in NVS flash.
 
 ## OTA Update
 
-1. Build new firmware: `idf.py build`
+1. Build: `idf.py build`
 2. Navigate to `http://<device-ip>/ota`
-3. Select `build/EHeating.bin` and upload
+3. Select `build/EHeating.bin` → upload
 4. Device flashes and reboots automatically
 
 ## Project Structure
 
 ```
 ├── CMakeLists.txt
-├── sdkconfig.defaults
-├── partitions.csv          # dual OTA partition layout
+├── sdkconfig.defaults          # esp32 target, 4 MB flash
+├── partitions.csv              # dual OTA partition layout
 └── main/
-    ├── main.c              # boot sequence, FreeRTOS tasks
-    ├── pin_config.h        # all GPIO defines
-    ├── app_state.h         # global state (mutex-protected)
-    ├── nvs_config.[ch]     # NVS persistence
-    ├── wifi_manager.[ch]   # AP + STA + event handling
-    ├── dns_server.[ch]     # captive portal DNS (UDP/53)
-    ├── web_server.[ch]     # HTTP server + all page handlers
-    ├── mqtt_manager.[ch]   # MQTT client + ring buffer
-    ├── ds18b20.[ch]        # 1-Wire GPIO bitbang driver
-    ├── relay_control.[ch]  # relay logic + safety lockout
-    ├── display.[ch]        # ST7701S init + RGB panel + font renderer
-    └── ota_manager.[ch]    # firmware upload endpoint
+    ├── main.c                  # boot sequence, FreeRTOS tasks
+    ├── pin_config.h            # all GPIO and LCD defines
+    ├── app_state.h             # global state (mutex-protected)
+    ├── nvs_config.[ch]         # NVS persistence
+    ├── wifi_manager.[ch]       # AP + STA + IP/RSSI helpers
+    ├── dns_server.[ch]         # captive portal DNS (UDP/53)
+    ├── web_server.[ch]         # HTTP server + all page handlers
+    ├── mqtt_manager.[ch]       # MQTT client + 10-min ring buffer
+    ├── ds18b20.[ch]            # 1-Wire GPIO bitbang driver
+    ├── relay_control.[ch]      # relay logic + safety lockout
+    ├── display.[ch]            # ILI9341 SPI driver + font renderer
+    └── ota_manager.[ch]        # firmware upload endpoint
 ```
 
 ## License
