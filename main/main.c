@@ -28,43 +28,52 @@ static int            s_sensor_count = 0;
 
 // ---- Sensor task ----
 // Reads both DS18B20s every 2 seconds.
+// Retries each read up to 3 times on CRC/bus errors before marking sensor bad.
 // Triggers safety lockout if sensor2 exceeds threshold.
 static void sensor_task(void *arg)
 {
     esp_err_t err;
     while (1) {
-        err = ds18b20_convert_all();
-        if (err != ESP_OK) {
-            ESP_LOGW(TAG, "1-wire convert failed");
-            state_lock();
-            g_state.sensor1_ok = false;
-            g_state.sensor2_ok = false;
-            state_unlock();
-            vTaskDelay(pdMS_TO_TICKS(2000));
-            continue;
-        }
-
         float t1 = 0, t2 = 0;
         bool ok1 = false, ok2 = false;
 
-        if (s_sensor_count >= 1) {
-            err = ds18b20_read_temp(&s_sensors[0], &t1);
-            ok1 = (err == ESP_OK);
+        err = ds18b20_convert_all();
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "1-wire convert failed, retrying");
+            vTaskDelay(pdMS_TO_TICKS(500));
+            err = ds18b20_convert_all();
         }
-        if (s_sensor_count >= 2) {
-            err = ds18b20_read_temp(&s_sensors[1], &t2);
-            ok2 = (err == ESP_OK);
+
+        if (err == ESP_OK) {
+            if (s_sensor_count >= 1) {
+                for (int r = 0; r < 3 && !ok1; r++) {
+                    if (r) vTaskDelay(pdMS_TO_TICKS(50));
+                    ok1 = (ds18b20_read_temp(&s_sensors[0], &t1) == ESP_OK);
+                    if (!ok1) ESP_LOGW(TAG, "T1 read attempt %d failed", r + 1);
+                }
+            }
+            if (s_sensor_count >= 2) {
+                for (int r = 0; r < 3 && !ok2; r++) {
+                    if (r) vTaskDelay(pdMS_TO_TICKS(50));
+                    ok2 = (ds18b20_read_temp(&s_sensors[1], &t2) == ESP_OK);
+                    if (!ok2) ESP_LOGW(TAG, "T2 read attempt %d failed", r + 1);
+                }
+            }
+        } else {
+            ESP_LOGE(TAG, "1-wire convert failed after retry");
         }
 
         state_lock();
         if (ok1) { g_state.sensor1_temp = t1; g_state.sensor1_ok = true; }
-        else        g_state.sensor1_ok = false;
+        else      g_state.sensor1_ok = false;
 
         if (ok2) { g_state.sensor2_temp = t2; g_state.sensor2_ok = true; }
-        else        g_state.sensor2_ok = false;
+        else      g_state.sensor2_ok = false;
 
-        // safety lockout
-        if (ok2 && t2 >= g_cfg.temp_safety && !g_state.error_lockout) {
+        // safety lockout — skip first 5 reads (10 s) to ignore DS18B20 power-on 85°C value
+        static int s_startup_reads = 0;
+        if (s_startup_reads < 5) { s_startup_reads++; }
+        else if (ok2 && t2 >= g_cfg.temp_safety && !g_state.error_lockout) {
             ESP_LOGE(TAG, "SAFETY LOCKOUT: sensor2 temp %.1f >= %.1f", t2, g_cfg.temp_safety);
             g_state.error_lockout = true;
         }
