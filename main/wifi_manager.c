@@ -137,6 +137,26 @@ bool wifi_manager_is_sta_connected(void)
     return (xEventGroupGetBits(s_wifi_eg) & WIFI_CONNECTED_BIT) != 0;
 }
 
+int wifi_manager_get_rssi(void)
+{
+    wifi_ap_record_t ap;
+    if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK)
+        return ap.rssi;
+    return 0;
+}
+
+void wifi_manager_get_ip(char *buf, size_t len)
+{
+    esp_netif_ip_info_t info;
+    if (s_sta_netif &&
+        esp_netif_get_ip_info(s_sta_netif, &info) == ESP_OK &&
+        info.ip.addr != 0) {
+        snprintf(buf, len, IPSTR, IP2STR(&info.ip));
+    } else {
+        strncpy(buf, "---", len);
+    }
+}
+
 void wifi_manager_connect_sta(const char *ssid, const char *pass)
 {
     strncpy(g_cfg.wifi_ssid, ssid, sizeof(g_cfg.wifi_ssid) - 1);

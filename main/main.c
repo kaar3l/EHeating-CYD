@@ -136,10 +136,9 @@ void app_main(void)
     // Load config
     config_load();
 
-    // Display init (runs before WiFi to show boot status quickly)
+    // Display init
     display_init();
-    display_clear(0x0000);
-    display_draw_string(8, 10, "EHeating booting...", COLOR_CYAN, COLOR_BLACK, FONT_SCALE);
+    display_status_msg("EHeating", "Booting...");
 
     // DS18B20 init and scan
     if (ds18b20_init(ONE_WIRE_BUS) == ESP_OK) {
@@ -161,15 +160,22 @@ void app_main(void)
     bool first_boot = (g_cfg.wifi_ssid[0] == '\0');
     if (first_boot) {
         ESP_LOGI(TAG, "first boot - starting AP only");
-        // Start DNS for captive portal
+        display_status_msg("WiFi Setup", "Connect: EHeating-Setup");
         dns_server_start();
-        // Start AP (no STA creds)
         wifi_manager_start_ap();
     } else {
-        // Has creds - try STA, keep AP running during connect attempt
+        display_status_msg("WiFi", "Connecting...");
         dns_server_start();
         wifi_manager_start_ap();
-        // dns_server_stop() called inside wifi_manager_start_ap() when STA connects
+        if (wifi_manager_is_sta_connected()) {
+            char ip[20];
+            wifi_manager_get_ip(ip, sizeof(ip));
+            display_status_msg("WiFi Connected", ip);
+            vTaskDelay(pdMS_TO_TICKS(2000));
+        } else {
+            display_status_msg("WiFi Failed", "Check settings");
+            vTaskDelay(pdMS_TO_TICKS(1500));
+        }
     }
 
     // Web server (always on)

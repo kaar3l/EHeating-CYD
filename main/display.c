@@ -5,6 +5,7 @@
 #include "display.h"
 #include "app_state.h"
 #include "nvs_config.h"
+#include "wifi_manager.h"
 #include "pin_config.h"
 
 #include "driver/spi_master.h"
@@ -359,8 +360,18 @@ void display_draw_string(int x, int y, const char *s, uint16_t fg, uint16_t bg, 
 
 /* ── Status screen ──────────────────────────────────────────────────────── */
 
-#define ROW_H  (8 * FONT_SCALE + 6)
+#define ROW_H  (8 * FONT_SCALE + 4)
 #define COL_X  8
+
+void display_status_msg(const char *line1, const char *line2)
+{
+    display_clear(COLOR_BLACK);
+    int cy = LCD_HEIGHT / 2 - ROW_H;
+    if (line1 && line1[0])
+        display_draw_string(COL_X, cy, line1, COLOR_CYAN, COLOR_BLACK, FONT_SCALE);
+    if (line2 && line2[0])
+        display_draw_string(COL_X, cy + ROW_H + 4, line2, COLOR_WHITE, COLOR_BLACK, FONT_SCALE);
+}
 
 void display_update_status(void)
 {
@@ -379,28 +390,26 @@ void display_update_status(void)
     bool  wifi = g_state.wifi_sta_connected;
     state_unlock();
 
-    display_clear(COLOR_BLACK);
+    /* Clear once on first call to wipe boot screen, then draw in-place */
+    static bool s_first = true;
+    if (s_first) { display_clear(COLOR_BLACK); s_first = false; }
 
     char buf[48];
-    int y = 8;
+    char ip[20];
+    wifi_manager_get_ip(ip, sizeof(ip));
+    int rssi = wifi_manager_get_rssi();
+    const int sw = 8 * FONT_SCALE;
+    int y = 4;
 
+    /* Title + WiFi + MQTT on one line */
     display_draw_string(COL_X, y, "EHeating", COLOR_CYAN, COLOR_BLACK, FONT_SCALE);
-
-    int sx = LCD_WIDTH - 8 * FONT_SCALE * 5 - 4;
-    display_draw_string(sx, y,
+    display_draw_string(LCD_WIDTH - sw * 9 - 4, y,
         wifi ? "WiFi" : "----",
         wifi ? COLOR_GREEN : COLOR_GRAY, COLOR_BLACK, FONT_SCALE);
-    display_draw_string(sx, y + ROW_H,
+    display_draw_string(LCD_WIDTH - sw * 4 - 4, y,
         mqtt ? "MQTT" : "----",
         mqtt ? COLOR_GREEN : COLOR_GRAY, COLOR_BLACK, FONT_SCALE);
-    y += ROW_H + 4;
-
-    if (lock) {
-        display_fill_rect(0, y, LCD_WIDTH, ROW_H + 2, COLOR_RED);
-        display_draw_string(COL_X, y + 1, "!! LOCKOUT: overheat !!",
-            COLOR_WHITE, COLOR_RED, FONT_SCALE);
-        y += ROW_H + 6;
-    }
+    y += ROW_H;
 
     snprintf(buf, sizeof(buf), s1ok ? "T1: %5.1f C" : "T1: ERROR  ", t1);
     display_draw_string(COL_X, y, buf,
@@ -413,19 +422,43 @@ void display_update_status(void)
     y += ROW_H;
 
     snprintf(buf, sizeof(buf), "Solar: %6.0f W", sol);
-    display_draw_string(COL_X, y, buf, COLOR_ORANGE, COLOR_BLACK, FONT_SCALE);
+    display_draw_string(COL_X, y, buf,
+        sol > g_cfg.solar_threshold ? COLOR_GREEN : COLOR_RED,
+        COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
 
     snprintf(buf, sizeof(buf), "Thr:   %6.0f W", g_cfg.solar_threshold);
-    display_draw_string(COL_X, y, buf, COLOR_GRAY, COLOR_BLACK, FONT_SCALE);
+    display_draw_string(COL_X, y, buf, COLOR_YELLOW, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
 
     snprintf(buf, sizeof(buf), "Relay1: %s", r1 ? "ON " : "OFF");
     display_draw_string(COL_X, y, buf,
-        r1 ? COLOR_GREEN : COLOR_GRAY, COLOR_BLACK, FONT_SCALE);
+        r1 ? COLOR_GREEN : COLOR_RED, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
 
     snprintf(buf, sizeof(buf), "Relay2: %s", r2 ? "ON " : "OFF");
     display_draw_string(COL_X, y, buf,
-        r2 ? COLOR_GREEN : COLOR_GRAY, COLOR_BLACK, FONT_SCALE);
+        r2 ? COLOR_GREEN : COLOR_RED, COLOR_BLACK, FONT_SCALE);
+    y += ROW_H;
+
+    snprintf(buf, sizeof(buf), "SSID: %.13s", g_cfg.wifi_ssid[0] ? g_cfg.wifi_ssid : "---");
+    display_draw_string(COL_X, y, buf, COLOR_GRAY, COLOR_BLACK, FONT_SCALE);
+    y += ROW_H;
+
+    snprintf(buf, sizeof(buf), "IP: %-15s", ip);
+    display_draw_string(COL_X, y, buf, COLOR_GRAY, COLOR_BLACK, FONT_SCALE);
+    y += ROW_H;
+
+    snprintf(buf, sizeof(buf), "RSSI: %d dBm   ", rssi);
+    display_draw_string(COL_X, y, buf, COLOR_GRAY, COLOR_BLACK, FONT_SCALE);
+    y += ROW_H;
+
+    /* Lockout at bottom — always drawn */
+    if (lock) {
+        display_fill_rect(0, y, LCD_WIDTH, ROW_H, COLOR_RED);
+        display_draw_string(COL_X, y, "!! LOCKOUT: overheat !!",
+            COLOR_WHITE, COLOR_RED, FONT_SCALE);
+    } else {
+        display_fill_rect(0, y, LCD_WIDTH, ROW_H, COLOR_BLACK);
+    }
 }
