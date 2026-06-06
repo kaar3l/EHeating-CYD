@@ -1,0 +1,48 @@
+EHeating.
+
+Use esp-idf for building.
+
+## Hardware
+
+| Item | Details |
+|------|---------|
+| Board | ESP-2432S028 (ESP32-D0WD-V3, 4 MB flash) |
+| Display | ILI9341 2.8″ 320×240 TFT (SPI2, on-board) |
+| Touch | XPT2046 resistive touch controller (SPI3, on-board) |
+
+### Touch controller pin mapping
+
+| Signal | GPIO |
+|--------|------|
+| CLK    | 25   |
+| CS     | 33   |
+| MOSI   | 32   |
+| MISO   | 39   |
+| IRQ    | 36   |
+
+The 2 DS18B20 sensors are connected to:
+#define ONE_WIRE_BUS 27
+
+Relay1 is:
+#define RELAY1_PIN 16
+
+Relay2 is:
+#define RELAY2_PIN 4
+
+Requirements:
+The device must start a wifi ap at first start.
+The wifi credentials must be provided after user is connected to wifi.
+When user connect via mobile the device has to automatically open settings page for wifi input.
+When wifi sta connection is successful, the device turns ap off.
+It must have OTA ability.
+The device must have mqtt support.
+It must have separate page for mqtt configuration. MQTT on/off, mqtt server, mqtt subscribe topic.
+MQTT subscribe topic is the input power from the solar power.
+If solar power is greater than a X power value then the relay1 must turn on. The device must take average solar power from previous 10 minutes.
+The X power value must be user configurable.
+The device gets water temperature from sensor1.
+The temperature from sensor1 must be between 55..60C. It must use hysteresis so it doesn't hurt relay. The 55C and 60C must be user configrable.
+The temperature from sensor2 is just for safety. If sensor2 temp is greater than 65 then go to error lockout. This 65C must be user configurable.
+
+LCD:
+The lcd has to have sensor1 temp, sensor2 temp, mqtt solar power, relay1 state, relay2 state.

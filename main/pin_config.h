@@ -1,46 +1,25 @@
 #pragma once
 
 // DS18B20 one-wire bus
-#define ONE_WIRE_BUS        1
+#define ONE_WIRE_BUS        27
 
-// Relays (active LOW - inverted)
-#define RELAY1_PIN          40
-#define RELAY2_PIN          2
+// Relays (active LOW)
+#define RELAY1_PIN          16
+#define RELAY2_PIN          4
 
-// Backlight (LEDC)
-#define LCD_BACKLIGHT_PIN   38
+// ILI9341 SPI display (SPI2 / HSPI)
+#define LCD_MOSI_PIN        13
+#define LCD_SCLK_PIN        14
+#define LCD_CS_PIN          15
+#define LCD_DC_PIN          2
+#define LCD_RST_PIN         12
+#define LCD_BACKLIGHT_PIN   21
 
-// SPI for ST7701S init commands
-#define LCD_SPI_CLK         48
-#define LCD_SPI_MOSI        47
-#define LCD_SPI_CS          39
+// MADCTL: MV=1 (landscape) + BGR=1 (panel wiring)
+// Change to 0xA8 or 0x68 if image is mirrored/flipped
+#define LCD_MADCTL          0x40
 
-// RGB panel signals
-#define LCD_DE_PIN          18
-#define LCD_HSYNC_PIN       16
-#define LCD_VSYNC_PIN       17
-#define LCD_PCLK_PIN        21
-
-// RGB data pins: R[4:0], G[5:0], B[4:0]
-#define LCD_R0              11
-#define LCD_R1              12
-#define LCD_R2              13
-#define LCD_R3              14
-#define LCD_R4              0
-
-#define LCD_G0              8
-#define LCD_G1              20
-#define LCD_G2              3
-#define LCD_G3              46
-#define LCD_G4              9
-#define LCD_G5              10
-
-#define LCD_B0              4
-#define LCD_B1              5
-#define LCD_B2              6
-#define LCD_B3              7
-#define LCD_B4              15
-
-#define LCD_WIDTH           480
-#define LCD_HEIGHT          480
-#define LCD_PCLK_HZ         (12 * 1000 * 1000)
+#define LCD_WIDTH           320
+#define LCD_HEIGHT          240
+#define LCD_SPI_HOST        SPI2_HOST
+#define LCD_SPI_FREQ_HZ     (40 * 1000 * 1000)

@@ -1,17 +1,18 @@
 #pragma once
 #include <stdint.h>
 
-#define COLOR_BLACK   0x0000
-#define COLOR_WHITE   0xFFFF
-#define COLOR_RED     0xF800
-#define COLOR_GREEN   0x07E0
-#define COLOR_BLUE    0x001F
-#define COLOR_YELLOW  0xFFE0
-#define COLOR_CYAN    0x07FF
-#define COLOR_ORANGE  0xFC00
-#define COLOR_GRAY    0x8410
+/* R and B pre-swapped to match panel's physical BGR subpixel order */
+#define COLOR_BLACK   0x0000u
+#define COLOR_WHITE   0xFFFFu
+#define COLOR_RED     0x001Fu  /* R↔B: was 0xF800 */
+#define COLOR_GREEN   0x07E0u
+#define COLOR_BLUE    0xF800u  /* R↔B: was 0x001F */
+#define COLOR_YELLOW  0x07FFu  /* R↔B: was 0xFFE0 */
+#define COLOR_CYAN    0xFFE0u  /* R↔B: was 0x07FF */
+#define COLOR_ORANGE  0x053Fu  /* R↔B: was 0xFD20 */
+#define COLOR_GRAY    0x8410u
 
-#define FONT_SCALE    3   // 8x8 font scaled 3x = 24x24px per char
+#define FONT_SCALE    2   // 8x8 font scaled 2x = 16x16px per char
 
 void display_init(void);
 void display_clear(uint16_t color);

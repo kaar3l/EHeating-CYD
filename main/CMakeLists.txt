@@ -19,7 +19,6 @@ idf_component_register(
         mqtt
         driver
         esp_lcd
-        esp_ota_ops
         app_update
         freertos
         log

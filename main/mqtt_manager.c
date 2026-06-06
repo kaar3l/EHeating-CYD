@@ -56,7 +56,7 @@ static void mqtt_event_handler(void *arg, esp_event_base_t base,
             char val[32] = {0};
             int n = ev->data_len < (int)sizeof(val) - 1 ? ev->data_len : (int)sizeof(val) - 1;
             memcpy(val, ev->data, n);
-            float watts = strtof(val, NULL);
+            float watts = -strtof(val, NULL); /* negative = producing → negate to positive */
             ESP_LOGI(TAG, "solar power: %.1f W", watts);
             push_solar(watts);
         }
