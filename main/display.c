@@ -442,22 +442,22 @@ void display_update_status(void)
     y += ROW_H;
 
     snprintf(buf, sizeof(buf), "SSID: %.13s", g_cfg.wifi_ssid[0] ? g_cfg.wifi_ssid : "---");
-    display_draw_string(COL_X, y, buf, COLOR_GRAY, COLOR_BLACK, FONT_SCALE);
+    display_draw_string(COL_X, y, buf, COLOR_ORANGE, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
 
     snprintf(buf, sizeof(buf), "IP: %-15s", ip);
-    display_draw_string(COL_X, y, buf, COLOR_GRAY, COLOR_BLACK, FONT_SCALE);
+    display_draw_string(COL_X, y, buf, COLOR_ORANGE, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
 
     snprintf(buf, sizeof(buf), "RSSI: %d dBm   ", rssi);
-    display_draw_string(COL_X, y, buf, COLOR_GRAY, COLOR_BLACK, FONT_SCALE);
+    display_draw_string(COL_X, y, buf, COLOR_ORANGE, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
 
     /* Lockout at bottom — always drawn */
     if (lock) {
         display_fill_rect(0, y, LCD_WIDTH, ROW_H, COLOR_RED);
-        display_draw_string(COL_X, y, "!! LOCKOUT: overheat !!",
-            COLOR_WHITE, COLOR_RED, FONT_SCALE);
+        display_draw_string(COL_X, y + (ROW_H - 8) / 2, "!! LOCKOUT: overheat !!",
+            COLOR_WHITE, COLOR_RED, 1);
     } else {
         display_fill_rect(0, y, LCD_WIDTH, ROW_H, COLOR_BLACK);
     }

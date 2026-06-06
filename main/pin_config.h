@@ -15,9 +15,9 @@
 #define LCD_RST_PIN         12
 #define LCD_BACKLIGHT_PIN   21
 
-// MADCTL: MV=1 (landscape) + BGR=1 (panel wiring)
+// MADCTL: MX=1 (mirror X) + BGR=1 (panel wiring)
 // Change to 0xA8 or 0x68 if image is mirrored/flipped
-#define LCD_MADCTL          0x40
+#define LCD_MADCTL          0x48
 
 #define LCD_WIDTH           320
 #define LCD_HEIGHT          240
