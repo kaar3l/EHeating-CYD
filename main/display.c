@@ -537,7 +537,7 @@ void display_update_status(void)
     char clock_buf[9];
     snprintf(clock_buf, sizeof(clock_buf), "%02d:%02d:%02d",
         tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec);
-    display_draw_string(LCD_WIDTH - sw * 8 - 4, y, clock_buf, COLOR_WHITE, COLOR_BLACK, FONT_SCALE);
+    display_draw_string(LCD_WIDTH - sw * 8 - 4, y, clock_buf, COLOR_ORANGE, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
     /* 4px space above and below separator line */
     display_fill_rect(0, y, LCD_WIDTH, 1, COLOR_GRAY);
