@@ -189,6 +189,19 @@ static void set_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 /* colours are pre-swapped R/B; only need byte-swap for SPI big-endian */
 static inline uint16_t enc(uint16_t c) { return (c >> 8) | (c << 8); }
 
+/* Blend two RGB565 colours by alpha (0 = bg, 255 = fg); channel-wise lerp */
+static inline uint16_t blend565(uint16_t fg, uint16_t bg, uint8_t alpha)
+{
+    if (alpha == 255) return fg;
+    if (alpha == 0)   return bg;
+    uint8_t fr = (fg >> 11) & 0x1F, fgg = (fg >> 5) & 0x3F, fb = fg & 0x1F;
+    uint8_t br = (bg >> 11) & 0x1F, bgg = (bg >> 5) & 0x3F, bb = bg & 0x1F;
+    uint8_t r = (fr * alpha + br * (255 - alpha)) / 255;
+    uint8_t g = (fgg * alpha + bgg * (255 - alpha)) / 255;
+    uint8_t b = (fb * alpha + bb * (255 - alpha)) / 255;
+    return (uint16_t)((r << 11) | (g << 5) | b);
+}
+
 static void fill_pixels(uint16_t color_enc, int count)
 {
     int fill = count < PIXBUF ? count : PIXBUF;
@@ -327,17 +340,28 @@ void display_draw_char(int x, int y, char c, uint16_t fg, uint16_t bg, int scale
     if (!s_spi || c < 32 || c > 126) return;
     const uint8_t *glyph = s_font[(uint8_t)c - 32];
     int w = 8 * scale, h = 8 * scale;
-    uint16_t fg_e = enc(fg), bg_e = enc(bg);
 
-    for (int row = 0; row < 8; row++) {
-        uint8_t line = glyph[row];
-        for (int rs = 0; rs < scale; rs++) {
-            int buf_row = (row * scale + rs) * w;
-            for (int col = 0; col < 8; col++) {
-                uint16_t px = (line & (1 << col)) ? fg_e : bg_e;
-                for (int cs = 0; cs < scale; cs++)
-                    s_pixbuf[buf_row + col * scale + cs] = px;
-            }
+    /* Bilinear-sample the 1-bit glyph and blend fg/bg by coverage — smooths
+     * scaled-up edges (anti-aliasing) while staying exact at scale 1. */
+    for (int py = 0; py < h; py++) {
+        float fy = (float)py / scale;
+        int   y0 = (int)fy;
+        int   y1 = y0 + 1 < 8 ? y0 + 1 : 7;
+        float wy = fy - y0;
+        for (int px = 0; px < w; px++) {
+            float fx = (float)px / scale;
+            int   x0 = (int)fx;
+            int   x1 = x0 + 1 < 8 ? x0 + 1 : 7;
+            float wx = fx - x0;
+
+            float v00 = (glyph[y0] & (1 << x0)) ? 1.f : 0.f;
+            float v10 = (glyph[y0] & (1 << x1)) ? 1.f : 0.f;
+            float v01 = (glyph[y1] & (1 << x0)) ? 1.f : 0.f;
+            float v11 = (glyph[y1] & (1 << x1)) ? 1.f : 0.f;
+            float cov = v00 * (1 - wx) * (1 - wy) + v10 * wx * (1 - wy)
+                      + v01 * (1 - wx) * wy       + v11 * wx * wy;
+
+            s_pixbuf[py * w + px] = enc(blend565(fg, bg, (uint8_t)(cov * 255.f + 0.5f)));
         }
     }
 
