@@ -18,6 +18,8 @@ typedef struct {
     bool  wifi_sta_connected;
     bool  sensor1_ok;
     bool  sensor2_ok;
+    char  sensor1_addr[20];   // hex ROM "28FF001122334455", "N/A" if not found
+    char  sensor2_addr[20];
 
     // solar ring buffer for 10-min average
     float solar_ring[SOLAR_RING_SIZE];

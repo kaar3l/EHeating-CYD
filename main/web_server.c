@@ -16,7 +16,7 @@ static httpd_handle_t s_server = NULL;
 // ---- HTML helpers ----
 
 static const char *HTML_HEAD =
-    "<!DOCTYPE html><html><head>"
+    "<!DOCTYPE html><html><head><title>EHeating</title>"
     "<meta charset='utf-8'>"
     "<meta name='viewport' content='width=device-width,initial-scale=1'>"
     "<style>"
@@ -113,16 +113,22 @@ static esp_err_t status_handler(httpd_req_t *req)
     bool  s2ok = g_state.sensor2_ok;
     bool  mqtt = g_state.mqtt_connected;
     bool  wifi = g_state.wifi_sta_connected;
+    char  s1addr[20], s2addr[20];
+    strncpy(s1addr, g_state.sensor1_addr, sizeof(s1addr));
+    strncpy(s2addr, g_state.sensor2_addr, sizeof(s2addr));
     state_unlock();
+
+    char ip[20];
+    wifi_manager_get_ip(ip, sizeof(ip));
 
     char t1_str[16], t2_str[16];
     if (s1ok) snprintf(t1_str, sizeof(t1_str), "%.1f C", t1); else strncpy(t1_str, "ERROR", sizeof(t1_str));
     if (s2ok) snprintf(t2_str, sizeof(t2_str), "%.1f C", t2); else strncpy(t2_str, "ERROR", sizeof(t2_str));
 
-    char body[1200];
+    char body[1800];
     snprintf(body, sizeof(body),
         "<h2>EHeating Status</h2>"
-        "<p>WiFi: <b class='%s'>%s</b> &nbsp; MQTT: <b class='%s'>%s</b></p>"
+        "<p>WiFi: <b class='%s'>%s</b> (%s) &nbsp; MQTT: <b class='%s'>%s</b></p>"
         "%s"
         "<table>"
         "<tr><td>Sensor1 (water):</td><td><b>%s</b></td></tr>"
@@ -130,17 +136,25 @@ static esp_err_t status_handler(httpd_req_t *req)
         "<tr><td>Solar power (10min avg):</td><td><b>%.0f W</b></td></tr>"
         "<tr><td>Relay1 (solar heat):</td><td><b class='%s'>%s</b></td></tr>"
         "<tr><td>Relay2 (manual):</td><td><b class='%s'>%s</b></td></tr>"
+        "<tr><td colspan=2><hr></td></tr>"
+        "<tr><td>T1 address:</td><td><code>%s</code></td></tr>"
+        "<tr><td>T2 address:</td><td><code>%s</code></td></tr>"
+        "<tr><td>MQTT server:</td><td><code>%s</code></td></tr>"
+        "<tr><td>MQTT topic:</td><td><code>%s</code></td></tr>"
         "</table>"
         "<br><form method='GET' action='/relay2'>"
         "<input type='hidden' name='state' value='%s'>"
         "<input type='submit' value='Toggle Relay2'></form>"
         "<meta http-equiv='refresh' content='5'>",
-        wifi ? "ok" : "err", wifi ? "Connected" : "Disconnected",
+        wifi ? "ok" : "err", wifi ? "Connected" : "Disconnected", ip,
         mqtt ? "ok" : "err", mqtt ? "Connected" : "Disconnected",
         lock ? "<p class='err'><b>!! SAFETY LOCKOUT - Sensor2 overheated !!</b></p>" : "",
         t1_str, t2_str, sol,
         r1 ? "ok" : "err", r1 ? "ON" : "OFF",
         r2 ? "ok" : "err", r2 ? "ON" : "OFF",
+        s1addr, s2addr,
+        g_cfg.mqtt_server[0] ? g_cfg.mqtt_server : "not set",
+        g_cfg.mqtt_topic[0]  ? g_cfg.mqtt_topic  : "not set",
         r2 ? "off" : "on"
     );
     return send_html(req, body);

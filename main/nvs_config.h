@@ -13,6 +13,12 @@ typedef struct {
     float temp_max;          // °C; hysteresis high (default 60)
     float temp_safety;       // °C; sensor2 lockout (default 65)
     bool  relay2_manual;     // manual state for relay2
+    int   lcd_brightness;    // 0-100 %
+    // Touch calibration: raw ADC values at screen edges
+    int   touch_x0;          // raw X when screen_x = 0
+    int   touch_x319;        // raw X when screen_x = 319
+    int   touch_y0;          // raw Y when screen_y = 0
+    int   touch_y239;        // raw Y when screen_y = 239
 } config_t;
 
 extern config_t g_cfg;

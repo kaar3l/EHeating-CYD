@@ -19,6 +19,14 @@
 // Change to 0xA8 or 0x68 if image is mirrored/flipped
 #define LCD_MADCTL          0x48
 
+// XPT2046 touch controller (SPI3 / VSPI, separate from LCD)
+#define TOUCH_CLK_PIN       25
+#define TOUCH_MOSI_PIN      32
+#define TOUCH_MISO_PIN      39
+#define TOUCH_CS_PIN        33
+#define TOUCH_IRQ_PIN       36
+#define TOUCH_SPI_HOST      SPI3_HOST
+
 #define LCD_WIDTH           320
 #define LCD_HEIGHT          240
 #define LCD_SPI_HOST        SPI2_HOST

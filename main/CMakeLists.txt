@@ -9,6 +9,7 @@ idf_component_register(
         "ds18b20.c"
         "relay_control.c"
         "display.c"
+        "touch.c"
         "ota_manager.c"
     INCLUDE_DIRS "."
     REQUIRES

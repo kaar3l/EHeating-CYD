@@ -19,6 +19,12 @@ void config_load_defaults(void)
     g_cfg.temp_safety     = 65.0f;
     g_cfg.mqtt_enabled    = false;
     g_cfg.relay2_manual   = false;
+    g_cfg.lcd_brightness  = 100;
+    // Measured calibration: 0x90=physical X (left=3742,right=260), 0xD0=physical Y (top=3667,bot=367)
+    g_cfg.touch_x0   = 3742;
+    g_cfg.touch_x319 = 260;
+    g_cfg.touch_y0   = 3667;
+    g_cfg.touch_y239 = 367;
     strncpy(g_cfg.mqtt_topic, "solar/power", sizeof(g_cfg.mqtt_topic) - 1);
 }
 
@@ -65,6 +71,11 @@ esp_err_t config_load(void)
     LOAD_FLT("temp_max",   g_cfg.temp_max);
     LOAD_FLT("temp_safe",  g_cfg.temp_safety);
     LOAD_U8 ("rly2_man",   g_cfg.relay2_manual);
+    { uint8_t v;  if (nvs_get_u8 (h, "lcd_bright",  &v) == ESP_OK) g_cfg.lcd_brightness = (int)v; }
+    LOAD_I32("tc2_x0",   g_cfg.touch_x0);
+    LOAD_I32("tc2_x319", g_cfg.touch_x319);
+    LOAD_I32("tc2_y0",   g_cfg.touch_y0);
+    LOAD_I32("tc2_y239", g_cfg.touch_y239);
 
     nvs_close(h);
     ESP_LOGI(TAG, "config loaded");
@@ -93,6 +104,11 @@ esp_err_t config_save(void)
     SAVE_FLT("temp_max",   g_cfg.temp_max);
     SAVE_FLT("temp_safe",  g_cfg.temp_safety);
     SAVE_U8 ("rly2_man",   g_cfg.relay2_manual);
+    nvs_set_u8(h, "lcd_bright", (uint8_t)g_cfg.lcd_brightness);
+    SAVE_I32("tc2_x0",   g_cfg.touch_x0);
+    SAVE_I32("tc2_x319", g_cfg.touch_x319);
+    SAVE_I32("tc2_y0",   g_cfg.touch_y0);
+    SAVE_I32("tc2_y239", g_cfg.touch_y239);
 
     err = nvs_commit(h);
     nvs_close(h);

@@ -358,10 +358,98 @@ void display_draw_string(int x, int y, const char *s, uint16_t fg, uint16_t bg, 
     }
 }
 
-/* ── Status screen ──────────────────────────────────────────────────────── */
-
+/* ── Layout constants (shared by status + settings screens) ─────────────── */
 #define ROW_H  (8 * FONT_SCALE + 4)
 #define COL_X  8
+
+/* ── Screen mode ────────────────────────────────────────────────────────── */
+
+static screen_mode_t s_screen = SCREEN_STATUS;
+
+screen_mode_t display_get_screen(void) { return s_screen; }
+
+void display_set_screen(screen_mode_t mode)
+{
+    s_screen = mode;
+    display_clear(COLOR_BLACK);
+    if (mode == SCREEN_SETTINGS) display_show_settings();
+}
+
+void display_set_brightness(int pct)
+{
+    if (pct < 0)   pct = 0;
+    if (pct > 100) pct = 100;
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, (uint32_t)(pct * 255 / 100));
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+}
+
+void display_show_settings(void)
+{
+    if (!s_spi) return;
+    char buf[48];
+    int pct = g_cfg.lcd_brightness;
+
+    /* Title */
+    display_draw_string(COL_X, 4, "Settings        ",
+        COLOR_CYAN, COLOR_BLACK, FONT_SCALE);
+    display_fill_rect(0, 22, LCD_WIDTH, 1, COLOR_GRAY);
+
+    /* Compact brightness section */
+    display_draw_string(COL_X, 26, "Brightness", COLOR_WHITE, COLOR_BLACK, 1);
+
+    int bar_w = pct * 300 / 100;
+    display_fill_rect(10,       36, bar_w,     8, COLOR_GREEN);
+    display_fill_rect(10+bar_w, 36, 300-bar_w, 8, 0x2104);
+
+    snprintf(buf, sizeof(buf), "%3d%%", pct);
+    display_draw_string((LCD_WIDTH - 4*16) / 2, 48, buf,
+        COLOR_WHITE, COLOR_BLACK, FONT_SCALE);
+
+    /* Separator before buttons */
+    display_fill_rect(0, 68, LCD_WIDTH, 1, COLOR_GRAY);
+
+    /* ±10% buttons (y=72, h=55 → ends y=127) — touch zone ty < 130 */
+    display_fill_rect(5,   72, 145, 55, 0x2104);
+    display_fill_rect(170, 72, 145, 55, 0x2104);
+    display_draw_string(5   + (145 - 5*16) / 2, 88, "-10% ", COLOR_WHITE, 0x2104, FONT_SCALE);
+    display_draw_string(170 + (145 - 5*16) / 2, 88, "+10% ", COLOR_WHITE, 0x2104, FONT_SCALE);
+
+    /* Separator before info */
+    display_fill_rect(0, 130, LCD_WIDTH, 1, COLOR_GRAY);
+
+    /* DS18B20 addresses */
+    state_lock();
+    char s1[20], s2[20];
+    memcpy(s1, g_state.sensor1_addr, sizeof(s1));
+    memcpy(s2, g_state.sensor2_addr, sizeof(s2));
+    state_unlock();
+
+    snprintf(buf, sizeof(buf), "T1: %.34s", s1[0] ? s1 : "---");
+    display_draw_string(COL_X, 134, buf, COLOR_WHITE, COLOR_BLACK, 1);
+    snprintf(buf, sizeof(buf), "T2: %.34s", s2[0] ? s2 : "---");
+    display_draw_string(COL_X, 144, buf, COLOR_WHITE, COLOR_BLACK, 1);
+
+    display_fill_rect(0, 154, LCD_WIDTH, 1, COLOR_GRAY);
+
+    /* MQTT info — truncate to fit 320px at scale 1 (40 chars from x=0) */
+    snprintf(buf, sizeof(buf), "MQTT: %.33s",
+        g_cfg.mqtt_server[0] ? g_cfg.mqtt_server : "---");
+    display_draw_string(COL_X, 158, buf, COLOR_CYAN, COLOR_BLACK, 1);
+
+    snprintf(buf, sizeof(buf), "Top:  %.34s",
+        g_cfg.mqtt_topic[0] ? g_cfg.mqtt_topic : "---");
+    display_draw_string(COL_X, 168, buf, COLOR_ORANGE, COLOR_BLACK, 1);
+
+    /* Back button — touch zone ty > 178, button height = font + 4px padding each side */
+    display_fill_rect(0, 178, LCD_WIDTH, 1, COLOR_GRAY);
+    display_fill_rect(0, 179, LCD_WIDTH, 16 + 8, 0x4208);          // 16px font + 8px padding
+    display_fill_rect(0, 179 + 16 + 8, LCD_WIDTH, LCD_HEIGHT - (179 + 16 + 8), COLOR_BLACK);
+    display_draw_string((LCD_WIDTH - 4 * 16) / 2, 179 + 4,
+        "Back", COLOR_WHITE, 0x4208, FONT_SCALE);
+}
+
+
+/* ── Status screen ──────────────────────────────────────────────────────── */
 
 void display_status_msg(const char *line1, const char *line2)
 {
@@ -376,6 +464,7 @@ void display_status_msg(const char *line1, const char *line2)
 void display_update_status(void)
 {
     if (!s_spi) return;
+    if (s_screen != SCREEN_STATUS) return;
 
     state_lock();
     float t1   = g_state.sensor1_temp;
@@ -410,6 +499,8 @@ void display_update_status(void)
         mqtt ? "MQTT" : "----",
         mqtt ? COLOR_GREEN : COLOR_GRAY, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
+    display_fill_rect(0, y - 4, LCD_WIDTH, 1, COLOR_GRAY);
+    y += 3;
 
     snprintf(buf, sizeof(buf), s1ok ? "T1: %5.1f C" : "T1: ERROR  ", t1);
     display_draw_string(COL_X, y, buf,
@@ -418,7 +509,7 @@ void display_update_status(void)
 
     snprintf(buf, sizeof(buf), s2ok ? "T2: %5.1f C" : "T2: ERROR  ", t2);
     display_draw_string(COL_X, y, buf,
-        s2ok ? COLOR_YELLOW : COLOR_RED, COLOR_BLACK, FONT_SCALE);
+        s2ok ? COLOR_WHITE : COLOR_RED, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
 
     snprintf(buf, sizeof(buf), "Solar: %6.0f W", sol);
@@ -440,6 +531,8 @@ void display_update_status(void)
     display_draw_string(COL_X, y, buf,
         r2 ? COLOR_GREEN : COLOR_RED, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
+    display_fill_rect(0, y - 4, LCD_WIDTH, 1, COLOR_GRAY);
+    y += 3;
 
     snprintf(buf, sizeof(buf), "SSID: %.13s", g_cfg.wifi_ssid[0] ? g_cfg.wifi_ssid : "---");
     display_draw_string(COL_X, y, buf, COLOR_ORANGE, COLOR_BLACK, FONT_SCALE);
