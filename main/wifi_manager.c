@@ -163,6 +163,14 @@ int wifi_manager_get_rssi(void)
     return 0;
 }
 
+int wifi_manager_get_channel(void)
+{
+    wifi_ap_record_t ap;
+    if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK)
+        return ap.primary;
+    return 0;
+}
+
 void wifi_manager_get_ip(char *buf, size_t len)
 {
     esp_netif_ip_info_t info;

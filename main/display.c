@@ -524,6 +524,7 @@ void display_update_status(void)
     char ip[20];
     wifi_manager_get_ip(ip, sizeof(ip));
     int rssi = wifi_manager_get_rssi();
+    int chan = wifi_manager_get_channel();
     const int sw = 8 * FONT_SCALE;
     int y = 4;
 
@@ -574,7 +575,7 @@ void display_update_status(void)
     display_draw_string(COL_X, y + (ROW_H - 8) / 2, buf, COLOR_ORANGE, COLOR_BLACK, 1);
     y += ROW_H;
 
-    snprintf(buf, sizeof(buf), "RSSI: %d dBm   ", rssi);
+    snprintf(buf, sizeof(buf), "RSSI: %d dBm  Ch:%d", rssi, chan);
     uint16_t rssi_color;
     if      (rssi > -70)  rssi_color = COLOR_GREEN;
     else if (rssi >= -85) rssi_color = COLOR_YELLOW;

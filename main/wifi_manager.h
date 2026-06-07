@@ -9,3 +9,4 @@ void wifi_manager_stop_ap(void);
 void wifi_manager_connect_sta(const char *ssid, const char *pass);
 void wifi_manager_get_ip(char *buf, size_t len);
 int  wifi_manager_get_rssi(void);
+int  wifi_manager_get_channel(void);
