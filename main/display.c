@@ -547,7 +547,12 @@ void display_update_status(void)
     y += ROW_H;
 
     snprintf(buf, sizeof(buf), "RSSI: %d dBm   ", rssi);
-    display_draw_string(COL_X, y, buf, COLOR_ORANGE, COLOR_BLACK, FONT_SCALE);
+    uint16_t rssi_color;
+    if      (rssi > -70)  rssi_color = COLOR_GREEN;
+    else if (rssi >= -85) rssi_color = COLOR_YELLOW;
+    else if (rssi >= -100) rssi_color = COLOR_ORANGE;
+    else                  rssi_color = COLOR_RED;
+    display_draw_string(COL_X, y, buf, rssi_color, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
 
     /* Lockout at bottom — always drawn */
