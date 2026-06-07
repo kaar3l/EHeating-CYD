@@ -134,6 +134,7 @@ static esp_err_t status_handler(httpd_req_t *req)
         "<tr><td>Sensor1 (water):</td><td><b>%s</b></td></tr>"
         "<tr><td>Sensor2 (safety):</td><td><b>%s</b></td></tr>"
         "<tr><td>Solar power (10min avg):</td><td><b>%.0f W</b></td></tr>"
+        "<tr><td>Solar threshold:</td><td><b>%.0f W</b></td></tr>"
         "<tr><td>Relay1 (solar heat):</td><td><b class='%s'>%s</b></td></tr>"
         "<tr><td>Relay2 (manual):</td><td><b class='%s'>%s</b></td></tr>"
         "<tr><td colspan=2><hr></td></tr>"
@@ -149,7 +150,7 @@ static esp_err_t status_handler(httpd_req_t *req)
         wifi ? "ok" : "err", wifi ? "Connected" : "Disconnected", ip,
         mqtt ? "ok" : "err", mqtt ? "Connected" : "Disconnected",
         lock ? "<p class='err'><b>!! SAFETY LOCKOUT - Sensor2 overheated !!</b></p>" : "",
-        t1_str, t2_str, sol,
+        t1_str, t2_str, sol, g_cfg.solar_threshold,
         r1 ? "ok" : "err", r1 ? "ON" : "OFF",
         r2 ? "ok" : "err", r2 ? "ON" : "OFF",
         s1addr, s2addr,
