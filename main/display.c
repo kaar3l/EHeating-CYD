@@ -16,6 +16,7 @@
 #include "freertos/task.h"
 #include <string.h>
 #include <stdio.h>
+#include <time.h>
 
 static const char *TAG = "display";
 
@@ -475,8 +476,6 @@ void display_update_status(void)
     bool  lock = g_state.error_lockout;
     bool  s1ok = g_state.sensor1_ok;
     bool  s2ok = g_state.sensor2_ok;
-    bool  mqtt = g_state.mqtt_connected;
-    bool  wifi = g_state.wifi_sta_connected;
     state_unlock();
 
     /* Clear once on first call to wipe boot screen, then draw in-place */
@@ -490,17 +489,20 @@ void display_update_status(void)
     const int sw = 8 * FONT_SCALE;
     int y = 4;
 
-    /* Title + WiFi + MQTT on one line */
+    /* Title + clock on one line */
     display_draw_string(COL_X, y, "EHeating", COLOR_CYAN, COLOR_BLACK, FONT_SCALE);
-    display_draw_string(LCD_WIDTH - sw * 9 - 4, y,
-        wifi ? "WiFi" : "----",
-        wifi ? COLOR_GREEN : COLOR_GRAY, COLOR_BLACK, FONT_SCALE);
-    display_draw_string(LCD_WIDTH - sw * 4 - 4, y,
-        mqtt ? "MQTT" : "----",
-        mqtt ? COLOR_GREEN : COLOR_GRAY, COLOR_BLACK, FONT_SCALE);
+
+    time_t    now = time(NULL);
+    struct tm tm_now;
+    localtime_r(&now, &tm_now);
+    char clock_buf[9];
+    snprintf(clock_buf, sizeof(clock_buf), "%02d:%02d:%02d",
+        tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec);
+    display_draw_string(LCD_WIDTH - sw * 8 - 4, y, clock_buf, COLOR_WHITE, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
-    display_fill_rect(0, y - 4, LCD_WIDTH, 1, COLOR_GRAY);
-    y += 3;
+    /* 4px space above and below separator line */
+    display_fill_rect(0, y, LCD_WIDTH, 1, COLOR_GRAY);
+    y += 5;
 
     snprintf(buf, sizeof(buf), s1ok ? "T1: %5.1f C" : "T1: ERROR  ", t1);
     display_draw_string(COL_X, y, buf,
@@ -531,8 +533,9 @@ void display_update_status(void)
     display_draw_string(COL_X, y, buf,
         r2 ? COLOR_GREEN : COLOR_RED, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
-    display_fill_rect(0, y - 4, LCD_WIDTH, 1, COLOR_GRAY);
-    y += 3;
+    /* 4px space above and below separator line */
+    display_fill_rect(0, y, LCD_WIDTH, 1, COLOR_GRAY);
+    y += 5;
 
     snprintf(buf, sizeof(buf), "SSID: %.13s", g_cfg.wifi_ssid[0] ? g_cfg.wifi_ssid : "---");
     display_draw_string(COL_X, y, buf, COLOR_ORANGE, COLOR_BLACK, FONT_SCALE);

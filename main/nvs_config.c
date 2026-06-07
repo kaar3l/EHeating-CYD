@@ -26,6 +26,7 @@ void config_load_defaults(void)
     g_cfg.touch_y0   = 3667;
     g_cfg.touch_y239 = 367;
     strncpy(g_cfg.mqtt_topic, "solar/power", sizeof(g_cfg.mqtt_topic) - 1);
+    strncpy(g_cfg.ntp_server, "pool.ntp.org", sizeof(g_cfg.ntp_server) - 1);
 }
 
 esp_err_t config_load(void)
@@ -66,6 +67,7 @@ esp_err_t config_load(void)
     LOAD_STR("mqtt_srv",   g_cfg.mqtt_server);
     LOAD_I32("mqtt_port",  g_cfg.mqtt_port);
     LOAD_STR("mqtt_topic", g_cfg.mqtt_topic);
+    LOAD_STR("ntp_srv",    g_cfg.ntp_server);
     LOAD_FLT("solar_thr",  g_cfg.solar_threshold);
     LOAD_FLT("temp_min",   g_cfg.temp_min);
     LOAD_FLT("temp_max",   g_cfg.temp_max);
@@ -99,6 +101,7 @@ esp_err_t config_save(void)
     SAVE_STR("mqtt_srv",   g_cfg.mqtt_server);
     SAVE_I32("mqtt_port",  g_cfg.mqtt_port);
     SAVE_STR("mqtt_topic", g_cfg.mqtt_topic);
+    SAVE_STR("ntp_srv",    g_cfg.ntp_server);
     SAVE_FLT("solar_thr",  g_cfg.solar_threshold);
     SAVE_FLT("temp_min",   g_cfg.temp_min);
     SAVE_FLT("temp_max",   g_cfg.temp_max);

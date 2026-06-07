@@ -3,6 +3,7 @@
 #include "freertos/event_groups.h"
 #include "esp_wifi.h"
 #include "esp_netif.h"
+#include "esp_netif_sntp.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "wifi_manager.h"
@@ -19,6 +20,22 @@ static const char *TAG = "wifi";
 static EventGroupHandle_t s_wifi_eg;
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
+
+static bool s_sntp_inited = false;
+
+static void start_sntp(void)
+{
+    if (s_sntp_inited) {
+        esp_netif_sntp_deinit();
+    }
+    esp_sntp_config_t cfg = ESP_NETIF_SNTP_DEFAULT_CONFIG(
+        g_cfg.ntp_server[0] ? g_cfg.ntp_server : "pool.ntp.org");
+    cfg.start = true;
+    cfg.wait_for_sync = false;
+    esp_netif_sntp_init(&cfg);
+    s_sntp_inited = true;
+    ESP_LOGI(TAG, "SNTP started, server=%s", g_cfg.ntp_server[0] ? g_cfg.ntp_server : "pool.ntp.org");
+}
 
 static int s_retry_count = 0;
 static esp_netif_t *s_ap_netif  = NULL;
@@ -62,6 +79,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
         state_lock();
         g_state.wifi_sta_connected = true;
         state_unlock();
+        start_sntp();
     }
 }
 
