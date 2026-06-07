@@ -529,7 +529,7 @@ void display_update_status(void)
 
     /* Logo + title + clock on one line */
     display_draw_logo(COL_X, y, COLOR_ORANGE, COLOR_BLACK, FONT_SCALE);
-    display_draw_string(COL_X + sw + 4, y, "EHeating", COLOR_CYAN, COLOR_BLACK, FONT_SCALE);
+    display_draw_string(COL_X + sw + 4, y, "EHeating", COLOR_ORANGE, COLOR_BLACK, FONT_SCALE);
 
     time_t    now = time(NULL);
     struct tm tm_now;
