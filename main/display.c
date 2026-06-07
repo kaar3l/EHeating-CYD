@@ -529,11 +529,11 @@ void display_update_status(void)
     y += 5;
 
     snprintf(buf, sizeof(buf), "SSID: %.13s", g_cfg.wifi_ssid[0] ? g_cfg.wifi_ssid : "---");
-    display_draw_string(COL_X, y, buf, COLOR_ORANGE, COLOR_BLACK, FONT_SCALE);
+    display_draw_string(COL_X, y + (ROW_H - 8) / 2, buf, COLOR_ORANGE, COLOR_BLACK, 1);
     y += ROW_H;
 
     snprintf(buf, sizeof(buf), "IP: %-15s", ip);
-    display_draw_string(COL_X, y, buf, COLOR_ORANGE, COLOR_BLACK, FONT_SCALE);
+    display_draw_string(COL_X, y + (ROW_H - 8) / 2, buf, COLOR_ORANGE, COLOR_BLACK, 1);
     y += ROW_H;
 
     snprintf(buf, sizeof(buf), "RSSI: %d dBm   ", rssi);
@@ -542,7 +542,7 @@ void display_update_status(void)
     else if (rssi >= -85) rssi_color = COLOR_YELLOW;
     else if (rssi >= -100) rssi_color = COLOR_ORANGE;
     else                  rssi_color = COLOR_RED;
-    display_draw_string(COL_X, y, buf, rssi_color, COLOR_BLACK, FONT_SCALE);
+    display_draw_string(COL_X, y + (ROW_H - 8) / 2, buf, rssi_color, COLOR_BLACK, 1);
     y += ROW_H;
     /* 4px space above and below separator line */
     display_fill_rect(0, y, LCD_WIDTH, 1, COLOR_GRAY);
