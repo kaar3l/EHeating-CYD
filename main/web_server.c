@@ -20,6 +20,9 @@ static const char *HTML_HEAD =
     "<!DOCTYPE html><html><head><title>EHeating</title>"
     "<meta charset='utf-8'>"
     "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+    "<link rel='icon' href='data:image/svg+xml,"
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\">"
+    "<text y=\".9em\" font-size=\"90\">\xE2\x98\x80\xEF\xB8\x8F</text></svg>'>"
     "<style>"
     "body{font-family:sans-serif;margin:20px;max-width:500px}"
     "h2{color:#336}"
@@ -29,11 +32,11 @@ static const char *HTML_HEAD =
     ".ok{color:green} .err{color:red}"
     "</style></head><body>"
     "<div class='nav'>"
-    "<a href='/'>Status</a>"
-    "<a href='/wifi'>WiFi</a>"
-    "<a href='/mqtt'>MQTT</a>"
-    "<a href='/settings'>Settings</a>"
-    "<a href='/ota'>OTA</a>"
+    "<a href='/'>\xF0\x9F\x93\x8A Status</a>"
+    "<a href='/wifi'>\xF0\x9F\x93\xB6 WiFi</a>"
+    "<a href='/mqtt'>\xF0\x9F\x93\xA1 MQTT</a>"
+    "<a href='/settings'>\xE2\x9A\x99\xEF\xB8\x8F Settings</a>"
+    "<a href='/ota'>\xF0\x9F\x94\x84 OTA</a>"
     "</div><hr>";
 
 static const char *HTML_FOOT = "</body></html>";
