@@ -7,7 +7,7 @@ ESP-IDF firmware for the **ESP32-2432S028** ("Cheap Yellow Display") that contro
 - **WiFi captive portal** — first-boot AP mode with auto-opening config page (Android, iOS, Windows)
 - **MQTT solar power input** — subscribes to configurable topic, computes 10-minute rolling average
 - **Temperature hysteresis** — Sensor1 controls Relay1 in 55–60 °C band (both limits configurable)
-- **Safety lockout** — Sensor2 triggers permanent relay-off if temperature exceeds limit (default 65 °C)
+- **Safety lockout** — Sensor1 or Sensor2 triggers permanent relay-off if its temperature exceeds its own limit (each configurable, default 65 °C); web UI / LCD show which sensor tripped it
 - **Web UI** — status dashboard (auto-refresh), WiFi setup, MQTT config, settings, Relay2 manual toggle
 - **OTA firmware update** — upload `.bin` via browser
 - **320×240 ILI9341 LCD** — live status: temps, solar power vs threshold, relay states, WiFi/MQTT/RSSI/IP
@@ -44,7 +44,7 @@ Resume   when: sensor1_temp < temp_min  (hysteresis — prevents relay chatter)
 
 ### Safety lockout
 
-If `sensor2_temp ≥ temp_safety` at any point, both relays turn off and stay off until the device reboots.
+If `sensor1_temp ≥ temp_safety1` or `sensor2_temp ≥ temp_safety` at any point, both relays turn off and stay off until the device reboots. The web status page and LCD lockout banner name the sensor that tripped it (e.g. "SAFETY LOCKOUT - Sensor1 overheated").
 
 ### Relay 2
 
@@ -82,7 +82,7 @@ idf.py -p /dev/ttyUSB0 flash
 | `/` | Status dashboard (auto-refreshes every 5 s) |
 | `/wifi` | WiFi SSID / password |
 | `/mqtt` | MQTT on/off, server, port, subscribe topic |
-| `/settings` | Solar threshold (W), temp min/max/safety (°C) |
+| `/settings` | Solar threshold (W), temp min/max (°C), safety temps for Sensor1 & Sensor2 (°C) |
 | `/relay2` | Toggle Relay 2 manually |
 | `/ota` | Upload new firmware `.bin` |
 
@@ -102,7 +102,7 @@ The status screen shows (updated every second, flicker-free):
 | SSID | Connected WiFi network | Gray |
 | IP | Device IP address | Gray |
 | RSSI | WiFi signal strength (dBm) | Gray |
-| Lockout | Safety lockout banner (bottom) | Red when active |
+| Lockout | Safety lockout banner, names tripped sensor (bottom) | Red when active |
 
 ## MQTT
 
@@ -121,6 +121,7 @@ The 10-minute rolling average is recomputed every second. Relay 1 activates when
 | Solar threshold | 500 W |
 | Temp min (hysteresis low) | 55 °C |
 | Temp max (hysteresis high) | 60 °C |
+| Safety temp (Sensor 1) | 65 °C |
 | Safety temp (Sensor 2) | 65 °C |
 | MQTT port | 1883 |
 
