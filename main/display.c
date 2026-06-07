@@ -335,10 +335,12 @@ void display_fill_rect(int x, int y, int w, int h, uint16_t color)
     fill_pixels(enc(color), w * h);
 }
 
-void display_draw_char(int x, int y, char c, uint16_t fg, uint16_t bg, int scale)
+/* Sun-disc logo bitmap (8x8, 1bpp), drawn before the "EHeating" title */
+static const uint8_t s_logo_sun[8] = {0x3C,0x7E,0xFF,0xFF,0xFF,0xFF,0x7E,0x3C};
+
+static void blit_glyph(int x, int y, const uint8_t *glyph, uint16_t fg, uint16_t bg, int scale)
 {
-    if (!s_spi || c < 32 || c > 126) return;
-    const uint8_t *glyph = s_font[(uint8_t)c - 32];
+    if (!s_spi) return;
     int w = 8 * scale, h = 8 * scale;
 
     /* Bilinear-sample the 1-bit glyph and blend fg/bg by coverage — smooths
@@ -372,6 +374,17 @@ void display_draw_char(int x, int y, char c, uint16_t fg, uint16_t bg, int scale
         .user      = (void *)1,
     };
     spi_device_polling_transmit(s_spi, &t);
+}
+
+void display_draw_char(int x, int y, char c, uint16_t fg, uint16_t bg, int scale)
+{
+    if (c < 32 || c > 126) return;
+    blit_glyph(x, y, s_font[(uint8_t)c - 32], fg, bg, scale);
+}
+
+void display_draw_logo(int x, int y, uint16_t fg, uint16_t bg, int scale)
+{
+    blit_glyph(x, y, s_logo_sun, fg, bg, scale);
 }
 
 void display_draw_string(int x, int y, const char *s, uint16_t fg, uint16_t bg, int scale)
@@ -514,8 +527,9 @@ void display_update_status(void)
     const int sw = 8 * FONT_SCALE;
     int y = 4;
 
-    /* Title + clock on one line */
-    display_draw_string(COL_X, y, "EHeating", COLOR_CYAN, COLOR_BLACK, FONT_SCALE);
+    /* Logo + title + clock on one line */
+    display_draw_logo(COL_X, y, COLOR_ORANGE, COLOR_BLACK, FONT_SCALE);
+    display_draw_string(COL_X + sw + 4, y, "EHeating", COLOR_CYAN, COLOR_BLACK, FONT_SCALE);
 
     time_t    now = time(NULL);
     struct tm tm_now;

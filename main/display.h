@@ -21,6 +21,7 @@ void display_status_msg(const char *line1, const char *line2);
 void display_clear(uint16_t color);
 void display_fill_rect(int x, int y, int w, int h, uint16_t color);
 void display_draw_char(int x, int y, char c, uint16_t fg, uint16_t bg, int scale);
+void display_draw_logo(int x, int y, uint16_t fg, uint16_t bg, int scale);
 void display_draw_string(int x, int y, const char *s, uint16_t fg, uint16_t bg, int scale);
 void display_update_status(void);
 
