@@ -524,16 +524,6 @@ void display_update_status(void)
     snprintf(buf, sizeof(buf), "Thr:   %6.0f W", g_cfg.solar_threshold);
     display_draw_string(COL_X, y, buf, COLOR_YELLOW, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
-
-    snprintf(buf, sizeof(buf), "Relay1: %s", r1 ? "ON " : "OFF");
-    display_draw_string(COL_X, y, buf,
-        r1 ? COLOR_GREEN : COLOR_RED, COLOR_BLACK, FONT_SCALE);
-    y += ROW_H;
-
-    snprintf(buf, sizeof(buf), "Relay2: %s", r2 ? "ON " : "OFF");
-    display_draw_string(COL_X, y, buf,
-        r2 ? COLOR_GREEN : COLOR_RED, COLOR_BLACK, FONT_SCALE);
-    y += ROW_H;
     /* 4px space above and below separator line */
     display_fill_rect(0, y, LCD_WIDTH, 1, COLOR_GRAY);
     y += 5;
@@ -553,6 +543,19 @@ void display_update_status(void)
     else if (rssi >= -100) rssi_color = COLOR_ORANGE;
     else                  rssi_color = COLOR_RED;
     display_draw_string(COL_X, y, buf, rssi_color, COLOR_BLACK, FONT_SCALE);
+    y += ROW_H;
+    /* 4px space above and below separator line */
+    display_fill_rect(0, y, LCD_WIDTH, 1, COLOR_GRAY);
+    y += 5;
+
+    snprintf(buf, sizeof(buf), "Relay1: %s", r1 ? "ON " : "OFF");
+    display_draw_string(COL_X, y, buf,
+        r1 ? COLOR_GREEN : COLOR_RED, COLOR_BLACK, FONT_SCALE);
+    y += ROW_H;
+
+    snprintf(buf, sizeof(buf), "Relay2: %s", r2 ? "ON " : "OFF");
+    display_draw_string(COL_X, y, buf,
+        r2 ? COLOR_GREEN : COLOR_RED, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
 
     /* Lockout at bottom — always drawn */
