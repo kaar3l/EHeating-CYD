@@ -336,7 +336,7 @@ void display_fill_rect(int x, int y, int w, int h, uint16_t color)
 }
 
 /* Sun-disc logo bitmap (8x8, 1bpp), drawn before the "EHeating" title */
-static const uint8_t s_logo_sun[8] = {0x3C,0x7E,0xFF,0xFF,0xFF,0xFF,0x7E,0x3C};
+static const uint8_t s_logo_sun[8] = {0x18,0x42,0x3C,0xBD,0xBD,0x3C,0x42,0x18};
 
 static void blit_glyph(int x, int y, const uint8_t *glyph, uint16_t fg, uint16_t bg, int scale)
 {
