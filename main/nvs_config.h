@@ -9,6 +9,7 @@ typedef struct {
     int   mqtt_port;
     char  mqtt_topic[128];
     char  ntp_server[64];
+    char  tz[64];            // POSIX TZ string (local time + DST rule)
     float solar_threshold;   // watts; relay1 turns on above this
     float temp_min;          // °C; hysteresis low (default 55)
     float temp_max;          // °C; hysteresis high (default 60)

@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include "esp_log.h"
 #include "esp_http_server.h"
 #include "web_server.h"
@@ -255,7 +256,7 @@ static esp_err_t mqtt_save_handler(httpd_req_t *req)
 
 static esp_err_t settings_page_handler(httpd_req_t *req)
 {
-    char body[1280];
+    char body[1536];
     snprintf(body, sizeof(body),
         "<h2>Heating Settings</h2>"
         "<form method='POST' action='/settings'>"
@@ -271,11 +272,13 @@ static esp_err_t settings_page_handler(httpd_req_t *req)
         "<input name='tsafe' value='%.1f' type='number' step='0.5'></label>"
         "<label>NTP server - for clock sync"
         "<input name='ntp' value='%s'></label>"
+        "<label>Timezone (POSIX TZ string, e.g. Estonia: EET-2EEST,M3.5.0/3,M10.5.0/4)"
+        "<input name='tz' value='%s'></label>"
         "<input type='submit' value='Save'>"
         "</form>",
         g_cfg.solar_threshold, g_cfg.temp_min, g_cfg.temp_max,
         g_cfg.temp_safety1, g_cfg.temp_safety,
-        g_cfg.ntp_server);
+        g_cfg.ntp_server, g_cfg.tz);
     return send_html(req, body);
 }
 
@@ -284,13 +287,14 @@ static esp_err_t settings_save_handler(httpd_req_t *req)
     char body[512];
     recv_body(req, body, sizeof(body));
 
-    char thr[16], tmin[16], tmax[16], tsafe[16], tsafe1[16], ntp[64];
+    char thr[16], tmin[16], tmax[16], tsafe[16], tsafe1[16], ntp[64], tz[64];
     get_field(body, "thr",    thr,    sizeof(thr));
     get_field(body, "tmin",   tmin,   sizeof(tmin));
     get_field(body, "tmax",   tmax,   sizeof(tmax));
     get_field(body, "tsafe1", tsafe1, sizeof(tsafe1));
     get_field(body, "tsafe",  tsafe,  sizeof(tsafe));
     get_field(body, "ntp",    ntp,    sizeof(ntp));
+    get_field(body, "tz",     tz,     sizeof(tz));
 
     if (thr[0])    g_cfg.solar_threshold = strtof(thr,  NULL);
     if (tmin[0])   g_cfg.temp_min        = strtof(tmin, NULL);
@@ -298,6 +302,11 @@ static esp_err_t settings_save_handler(httpd_req_t *req)
     if (tsafe1[0]) g_cfg.temp_safety1    = strtof(tsafe1, NULL);
     if (tsafe[0])  g_cfg.temp_safety     = strtof(tsafe, NULL);
     if (ntp[0])    strncpy(g_cfg.ntp_server, ntp, sizeof(g_cfg.ntp_server) - 1);
+    if (tz[0]) {
+        strncpy(g_cfg.tz, tz, sizeof(g_cfg.tz) - 1);
+        setenv("TZ", g_cfg.tz, 1);
+        tzset();
+    }
     config_save();
 
     return send_html(req, "<p class='ok'>Settings saved.</p>"

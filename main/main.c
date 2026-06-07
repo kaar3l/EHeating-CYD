@@ -1,4 +1,6 @@
 #include <string.h>
+#include <stdlib.h>
+#include <time.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -254,6 +256,8 @@ void app_main(void)
 
     // Load config
     config_load();
+    setenv("TZ", g_cfg.tz, 1);
+    tzset();
     display_set_brightness(g_cfg.lcd_brightness);
     touch_apply_cal(g_cfg.touch_x0, g_cfg.touch_x319,
                     g_cfg.touch_y0, g_cfg.touch_y239);
