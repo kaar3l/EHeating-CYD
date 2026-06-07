@@ -17,6 +17,7 @@ void config_load_defaults(void)
     g_cfg.temp_min        = 55.0f;
     g_cfg.temp_max        = 60.0f;
     g_cfg.temp_safety     = 65.0f;
+    g_cfg.temp_safety1    = 65.0f;
     g_cfg.mqtt_enabled    = false;
     g_cfg.relay2_manual   = false;
     g_cfg.lcd_brightness  = 100;
@@ -72,6 +73,7 @@ esp_err_t config_load(void)
     LOAD_FLT("temp_min",   g_cfg.temp_min);
     LOAD_FLT("temp_max",   g_cfg.temp_max);
     LOAD_FLT("temp_safe",  g_cfg.temp_safety);
+    LOAD_FLT("temp_safe1", g_cfg.temp_safety1);
     LOAD_U8 ("rly2_man",   g_cfg.relay2_manual);
     { uint8_t v;  if (nvs_get_u8 (h, "lcd_bright",  &v) == ESP_OK) g_cfg.lcd_brightness = (int)v; }
     LOAD_I32("tc2_x0",   g_cfg.touch_x0);
@@ -106,6 +108,7 @@ esp_err_t config_save(void)
     SAVE_FLT("temp_min",   g_cfg.temp_min);
     SAVE_FLT("temp_max",   g_cfg.temp_max);
     SAVE_FLT("temp_safe",  g_cfg.temp_safety);
+    SAVE_FLT("temp_safe1", g_cfg.temp_safety1);
     SAVE_U8 ("rly2_man",   g_cfg.relay2_manual);
     nvs_set_u8(h, "lcd_bright", (uint8_t)g_cfg.lcd_brightness);
     SAVE_I32("tc2_x0",   g_cfg.touch_x0);

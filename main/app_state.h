@@ -14,6 +14,7 @@ typedef struct {
     bool  relay1_state;
     bool  relay2_state;
     bool  error_lockout;
+    int   lockout_sensor;     // which sensor triggered lockout: 1 or 2, 0 = none
     bool  mqtt_connected;
     bool  wifi_sta_connected;
     bool  sensor1_ok;

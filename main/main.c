@@ -49,7 +49,7 @@ static void update_sensor_addrs(void)
 // ---- Sensor task ----
 // Reads both DS18B20s every 2 seconds.
 // Retries each read up to 3 times on CRC/bus errors before marking sensor bad.
-// Triggers safety lockout if sensor2 exceeds threshold.
+// Triggers safety lockout if sensor1 or sensor2 exceeds its threshold.
 static void sensor_task(void *arg)
 {
     esp_err_t err;
@@ -113,10 +113,18 @@ static void sensor_task(void *arg)
 
         // safety lockout — skip first 5 reads (10 s) to ignore DS18B20 power-on 85°C value
         static int s_startup_reads = 0;
-        if (s_startup_reads < 5) { s_startup_reads++; }
-        else if (ok2 && t2 >= g_cfg.temp_safety && !g_state.error_lockout) {
-            ESP_LOGE(TAG, "SAFETY LOCKOUT: sensor2 temp %.1f >= %.1f", t2, g_cfg.temp_safety);
-            g_state.error_lockout = true;
+        if (s_startup_reads < 5) {
+            s_startup_reads++;
+        } else if (!g_state.error_lockout) {
+            if (ok1 && t1 >= g_cfg.temp_safety1) {
+                ESP_LOGE(TAG, "SAFETY LOCKOUT: sensor1 temp %.1f >= %.1f", t1, g_cfg.temp_safety1);
+                g_state.error_lockout  = true;
+                g_state.lockout_sensor = 1;
+            } else if (ok2 && t2 >= g_cfg.temp_safety) {
+                ESP_LOGE(TAG, "SAFETY LOCKOUT: sensor2 temp %.1f >= %.1f", t2, g_cfg.temp_safety);
+                g_state.error_lockout  = true;
+                g_state.lockout_sensor = 2;
+            }
         }
         state_unlock();
 

@@ -109,6 +109,7 @@ static esp_err_t status_handler(httpd_req_t *req)
     bool  r1   = g_state.relay1_state;
     bool  r2   = g_state.relay2_state;
     bool  lock = g_state.error_lockout;
+    int   lock_sensor = g_state.lockout_sensor;
     bool  s1ok = g_state.sensor1_ok;
     bool  s2ok = g_state.sensor2_ok;
     bool  mqtt = g_state.mqtt_connected;
@@ -124,6 +125,13 @@ static esp_err_t status_handler(httpd_req_t *req)
     char t1_str[16], t2_str[16];
     if (s1ok) snprintf(t1_str, sizeof(t1_str), "%.1f C", t1); else strncpy(t1_str, "ERROR", sizeof(t1_str));
     if (s2ok) snprintf(t2_str, sizeof(t2_str), "%.1f C", t2); else strncpy(t2_str, "ERROR", sizeof(t2_str));
+
+    char lock_msg[80] = "";
+    if (lock) {
+        snprintf(lock_msg, sizeof(lock_msg),
+                 "<p class='err'><b>!! SAFETY LOCKOUT - Sensor%d overheated !!</b></p>",
+                 lock_sensor);
+    }
 
     char body[1800];
     snprintf(body, sizeof(body),
@@ -149,7 +157,7 @@ static esp_err_t status_handler(httpd_req_t *req)
         "<meta http-equiv='refresh' content='5'>",
         wifi ? "ok" : "err", wifi ? "Connected" : "Disconnected", ip,
         mqtt ? "ok" : "err", mqtt ? "Connected" : "Disconnected",
-        lock ? "<p class='err'><b>!! SAFETY LOCKOUT - Sensor2 overheated !!</b></p>" : "",
+        lock_msg,
         t1_str, t2_str, sol, g_cfg.solar_threshold,
         r1 ? "ok" : "err", r1 ? "ON" : "OFF",
         r2 ? "ok" : "err", r2 ? "ON" : "OFF",
@@ -247,7 +255,7 @@ static esp_err_t mqtt_save_handler(httpd_req_t *req)
 
 static esp_err_t settings_page_handler(httpd_req_t *req)
 {
-    char body[1024];
+    char body[1280];
     snprintf(body, sizeof(body),
         "<h2>Heating Settings</h2>"
         "<form method='POST' action='/settings'>"
@@ -257,13 +265,16 @@ static esp_err_t settings_page_handler(httpd_req_t *req)
         "<input name='tmin' value='%.1f' type='number' step='0.5'></label>"
         "<label>Temp max (C) - turn relay1 off above this"
         "<input name='tmax' value='%.1f' type='number' step='0.5'></label>"
+        "<label>Safety temp (C) - lockout if Sensor1 exceeds this"
+        "<input name='tsafe1' value='%.1f' type='number' step='0.5'></label>"
         "<label>Safety temp (C) - lockout if Sensor2 exceeds this"
         "<input name='tsafe' value='%.1f' type='number' step='0.5'></label>"
         "<label>NTP server - for clock sync"
         "<input name='ntp' value='%s'></label>"
         "<input type='submit' value='Save'>"
         "</form>",
-        g_cfg.solar_threshold, g_cfg.temp_min, g_cfg.temp_max, g_cfg.temp_safety,
+        g_cfg.solar_threshold, g_cfg.temp_min, g_cfg.temp_max,
+        g_cfg.temp_safety1, g_cfg.temp_safety,
         g_cfg.ntp_server);
     return send_html(req, body);
 }
@@ -273,18 +284,20 @@ static esp_err_t settings_save_handler(httpd_req_t *req)
     char body[512];
     recv_body(req, body, sizeof(body));
 
-    char thr[16], tmin[16], tmax[16], tsafe[16], ntp[64];
-    get_field(body, "thr",   thr,   sizeof(thr));
-    get_field(body, "tmin",  tmin,  sizeof(tmin));
-    get_field(body, "tmax",  tmax,  sizeof(tmax));
-    get_field(body, "tsafe", tsafe, sizeof(tsafe));
-    get_field(body, "ntp",   ntp,   sizeof(ntp));
+    char thr[16], tmin[16], tmax[16], tsafe[16], tsafe1[16], ntp[64];
+    get_field(body, "thr",    thr,    sizeof(thr));
+    get_field(body, "tmin",   tmin,   sizeof(tmin));
+    get_field(body, "tmax",   tmax,   sizeof(tmax));
+    get_field(body, "tsafe1", tsafe1, sizeof(tsafe1));
+    get_field(body, "tsafe",  tsafe,  sizeof(tsafe));
+    get_field(body, "ntp",    ntp,    sizeof(ntp));
 
-    if (thr[0])   g_cfg.solar_threshold = strtof(thr,  NULL);
-    if (tmin[0])  g_cfg.temp_min        = strtof(tmin, NULL);
-    if (tmax[0])  g_cfg.temp_max        = strtof(tmax, NULL);
-    if (tsafe[0]) g_cfg.temp_safety     = strtof(tsafe, NULL);
-    if (ntp[0])   strncpy(g_cfg.ntp_server, ntp, sizeof(g_cfg.ntp_server) - 1);
+    if (thr[0])    g_cfg.solar_threshold = strtof(thr,  NULL);
+    if (tmin[0])   g_cfg.temp_min        = strtof(tmin, NULL);
+    if (tmax[0])   g_cfg.temp_max        = strtof(tmax, NULL);
+    if (tsafe1[0]) g_cfg.temp_safety1    = strtof(tsafe1, NULL);
+    if (tsafe[0])  g_cfg.temp_safety     = strtof(tsafe, NULL);
+    if (ntp[0])    strncpy(g_cfg.ntp_server, ntp, sizeof(g_cfg.ntp_server) - 1);
     config_save();
 
     return send_html(req, "<p class='ok'>Settings saved.</p>"

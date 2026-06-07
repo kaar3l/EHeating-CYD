@@ -474,6 +474,7 @@ void display_update_status(void)
     bool  r1   = g_state.relay1_state;
     bool  r2   = g_state.relay2_state;
     bool  lock = g_state.error_lockout;
+    int   lock_sensor = g_state.lockout_sensor;
     bool  s1ok = g_state.sensor1_ok;
     bool  s2ok = g_state.sensor2_ok;
     state_unlock();
@@ -552,7 +553,8 @@ void display_update_status(void)
     /* Lockout at bottom — always drawn */
     if (lock) {
         display_fill_rect(0, y, LCD_WIDTH, ROW_H, COLOR_RED);
-        display_draw_string(COL_X, y + (ROW_H - 8) / 2, "!! LOCKOUT: overheat !!",
+        snprintf(buf, sizeof(buf), "!! LOCKOUT: T%d overheat !!", lock_sensor);
+        display_draw_string(COL_X, y + (ROW_H - 8) / 2, buf,
             COLOR_WHITE, COLOR_RED, 1);
     } else {
         display_fill_rect(0, y, LCD_WIDTH, ROW_H, COLOR_BLACK);
