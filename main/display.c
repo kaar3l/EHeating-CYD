@@ -398,6 +398,7 @@ void display_draw_string(int x, int y, const char *s, uint16_t fg, uint16_t bg, 
 
 /* ── Layout constants (shared by status + settings screens) ─────────────── */
 #define ROW_H  (8 * FONT_SCALE + 4)
+#define WIFI_ROW_H 14   /* tighter spacing for scale=1 SSID/IP/RSSI rows */
 #define COL_X  8
 
 /* ── Screen mode ────────────────────────────────────────────────────────── */
@@ -568,12 +569,12 @@ void display_update_status(void)
     y += 5;
 
     snprintf(buf, sizeof(buf), "SSID: %.13s", g_cfg.wifi_ssid[0] ? g_cfg.wifi_ssid : "---");
-    display_draw_string(COL_X, y + (ROW_H - 8) / 2, buf, COLOR_ORANGE, COLOR_BLACK, 1);
-    y += ROW_H;
+    display_draw_string(COL_X, y + (WIFI_ROW_H - 8) / 2, buf, COLOR_ORANGE, COLOR_BLACK, 1);
+    y += WIFI_ROW_H;
 
     snprintf(buf, sizeof(buf), "IP: %-15s", ip);
-    display_draw_string(COL_X, y + (ROW_H - 8) / 2, buf, COLOR_ORANGE, COLOR_BLACK, 1);
-    y += ROW_H;
+    display_draw_string(COL_X, y + (WIFI_ROW_H - 8) / 2, buf, COLOR_ORANGE, COLOR_BLACK, 1);
+    y += WIFI_ROW_H;
 
     snprintf(buf, sizeof(buf), "RSSI: %d dBm  Ch:%d", rssi, chan);
     uint16_t rssi_color;
@@ -581,8 +582,8 @@ void display_update_status(void)
     else if (rssi >= -85) rssi_color = COLOR_YELLOW;
     else if (rssi >= -100) rssi_color = COLOR_ORANGE;
     else                  rssi_color = COLOR_RED;
-    display_draw_string(COL_X, y + (ROW_H - 8) / 2, buf, rssi_color, COLOR_BLACK, 1);
-    y += ROW_H;
+    display_draw_string(COL_X, y + (WIFI_ROW_H - 8) / 2, buf, rssi_color, COLOR_BLACK, 1);
+    y += WIFI_ROW_H;
     /* 4px space above and below separator line */
     display_fill_rect(0, y, LCD_WIDTH, 1, COLOR_GRAY);
     y += 5;
