@@ -490,14 +490,33 @@ void display_show_settings(void)
 
 /* ── Status screen ──────────────────────────────────────────────────────── */
 
-void display_status_msg(const char *line1, const char *line2)
+void display_status_msg(const char *line1, const char *line2, uint16_t color1)
 {
     display_clear(COLOR_BLACK);
     int cy = LCD_HEIGHT / 2 - ROW_H;
     if (line1 && line1[0])
-        display_draw_string(COL_X, cy, line1, COLOR_CYAN, COLOR_BLACK, FONT_SCALE);
+        display_draw_string(COL_X, cy, line1, color1, COLOR_BLACK, FONT_SCALE);
     if (line2 && line2[0])
         display_draw_string(COL_X, cy + ROW_H + 4, line2, COLOR_WHITE, COLOR_BLACK, FONT_SCALE);
+}
+
+/* Splash screen shown at boot: sun logo + "EHeating" centered, orange */
+void display_boot_screen(void)
+{
+    display_clear(COLOR_BLACK);
+    const int scale = 3;
+    const int sw    = 8 * scale;
+    const char *title = "EHeating";
+    int title_w = sw + 4 + (int)strlen(title) * sw;
+    int x = (LCD_WIDTH - title_w) / 2;
+    int y = LCD_HEIGHT / 2 - sw - 8;
+
+    display_draw_logo(x, y, COLOR_ORANGE, COLOR_BLACK, scale);
+    display_draw_string(x + sw + 4, y, title, COLOR_ORANGE, COLOR_BLACK, scale);
+
+    const char *sub = "Booting...";
+    int sub_w = (int)strlen(sub) * 8 * FONT_SCALE;
+    display_draw_string((LCD_WIDTH - sub_w) / 2, y + sw + 16, sub, COLOR_WHITE, COLOR_BLACK, FONT_SCALE);
 }
 
 void display_update_status(void)

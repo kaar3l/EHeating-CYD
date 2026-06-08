@@ -17,7 +17,8 @@ typedef enum { SCREEN_STATUS, SCREEN_SETTINGS } screen_mode_t;
 #define FONT_SCALE    2   // 8x8 font scaled 2x = 16x16px per char
 
 void display_init(void);
-void display_status_msg(const char *line1, const char *line2);
+void display_status_msg(const char *line1, const char *line2, uint16_t color1);
+void display_boot_screen(void);
 void display_clear(uint16_t color);
 void display_fill_rect(int x, int y, int w, int h, uint16_t color);
 void display_draw_char(int x, int y, char c, uint16_t fg, uint16_t bg, int scale);

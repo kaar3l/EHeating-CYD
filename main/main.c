@@ -264,7 +264,7 @@ void app_main(void)
 
     // Display init
     display_init();
-    display_status_msg("EHeating", "Booting...");
+    display_boot_screen();
 
     // DS18B20 init and scan
     if (ds18b20_init(ONE_WIRE_BUS) == ESP_OK) {
@@ -301,20 +301,20 @@ void app_main(void)
     bool first_boot = (g_cfg.wifi_ssid[0] == '\0');
     if (first_boot) {
         ESP_LOGI(TAG, "first boot - starting AP only");
-        display_status_msg("WiFi Setup", "Connect: EHeating-Setup");
+        display_status_msg("WiFi Setup", "Connect: EHeating-Setup", COLOR_CYAN);
         dns_server_start();
         wifi_manager_start_ap();
     } else {
-        display_status_msg("WiFi", "Connecting...");
+        display_status_msg("WiFi", "Connecting...", COLOR_ORANGE);
         dns_server_start();
         wifi_manager_start_ap();
         if (wifi_manager_is_sta_connected()) {
             char ip[20];
             wifi_manager_get_ip(ip, sizeof(ip));
-            display_status_msg("WiFi Connected", ip);
+            display_status_msg("WiFi Connected", ip, COLOR_ORANGE);
             vTaskDelay(pdMS_TO_TICKS(2000));
         } else {
-            display_status_msg("WiFi Failed", "Check settings");
+            display_status_msg("WiFi Failed", "Check settings", COLOR_RED);
             vTaskDelay(pdMS_TO_TICKS(1500));
         }
     }
