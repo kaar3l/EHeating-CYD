@@ -227,11 +227,18 @@ static esp_err_t wifi_save_handler(httpd_req_t *req)
 
 // ---- MQTT config page ----
 
+static const char *s_pub_names[PUB_COUNT] = {
+    "Sensor 1 (water &deg;C)", "Sensor 2 (safety &deg;C)",
+    "Solar power (W)", "Solar threshold (W)",
+    "Relay 1", "Relay 2"
+};
+
 static esp_err_t mqtt_page_handler(httpd_req_t *req)
 {
-    char body[768];
-    snprintf(body, sizeof(body),
+    char body[2048];
+    int pos = snprintf(body, sizeof(body),
         "<h2>MQTT Configuration</h2>"
+        "<style>input[type=checkbox]{width:auto}</style>"
         "<form method='POST' action='/mqtt'>"
         "<label>MQTT Enabled"
         "<select name='en'>"
@@ -240,18 +247,35 @@ static esp_err_t mqtt_page_handler(httpd_req_t *req)
         "</select></label>"
         "<label>Server<input name='srv' value='%s'></label>"
         "<label>Port<input name='port' value='%d' type='number'></label>"
-        "<label>Subscribe Topic (solar power W)<input name='topic' value='%s'></label>"
-        "<input type='submit' value='Save'>"
-        "</form>",
+        "<label>Subscribe Topic (incoming solar power W)<input name='topic' value='%s'></label>"
+        "<h2>Publish Topics</h2>"
+        "<table><tr><th>Channel</th><th>Enable</th><th>Topic</th></tr>",
         g_cfg.mqtt_enabled ? " selected" : "",
         g_cfg.mqtt_enabled ? "" : " selected",
         g_cfg.mqtt_server, g_cfg.mqtt_port, g_cfg.mqtt_topic);
+
+    for (int i = 0; i < PUB_COUNT; i++) {
+        pos += snprintf(body + pos, sizeof(body) - pos,
+            "<tr><td>%s</td>"
+            "<td style='text-align:center'>"
+            "<input type='checkbox' name='pen%d' value='1'%s></td>"
+            "<td><input name='ptp%d' value='%s'></td></tr>",
+            s_pub_names[i], i,
+            g_cfg.pub_en[i] ? " checked" : "",
+            i, g_cfg.pub_topic[i]);
+    }
+
+    snprintf(body + pos, sizeof(body) - pos,
+        "</table>"
+        "<input type='submit' value='Save'>"
+        "</form>");
+
     return send_html(req, body);
 }
 
 static esp_err_t mqtt_save_handler(httpd_req_t *req)
 {
-    char body[512];
+    char body[1024];
     recv_body(req, body, sizeof(body));
 
     char en[4], srv[128], port_s[8], topic[128];
@@ -264,6 +288,17 @@ static esp_err_t mqtt_save_handler(httpd_req_t *req)
     strncpy(g_cfg.mqtt_server, srv,   sizeof(g_cfg.mqtt_server) - 1);
     strncpy(g_cfg.mqtt_topic,  topic, sizeof(g_cfg.mqtt_topic)  - 1);
     if (port_s[0]) g_cfg.mqtt_port = atoi(port_s);
+
+    char key[8], val[128];
+    for (int i = 0; i < PUB_COUNT; i++) {
+        snprintf(key, sizeof(key), "pen%d", i);
+        char en_i[4]; get_field(body, key, en_i, sizeof(en_i));
+        g_cfg.pub_en[i] = (en_i[0] == '1');
+
+        snprintf(key, sizeof(key), "ptp%d", i);
+        get_field(body, key, val, sizeof(val));
+        if (val[0]) strncpy(g_cfg.pub_topic[i], val, sizeof(g_cfg.pub_topic[i]) - 1);
+    }
 
     config_save();
     mqtt_manager_restart();

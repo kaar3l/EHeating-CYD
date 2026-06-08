@@ -1,6 +1,17 @@
 #pragma once
 #include <stdbool.h>
 
+/* Indices for per-channel publish configuration */
+enum {
+    PUB_SENSOR1    = 0,
+    PUB_SENSOR2    = 1,
+    PUB_SOLAR      = 2,
+    PUB_SOLAR_THR  = 3,
+    PUB_RELAY1     = 4,
+    PUB_RELAY2     = 5,
+    PUB_COUNT      = 6
+};
+
 typedef struct {
     char  wifi_ssid[64];
     char  wifi_pass[64];
@@ -17,6 +28,9 @@ typedef struct {
     float temp_safety1;      // °C; sensor1 lockout (default 65)
     bool  relay2_manual;     // manual state for relay2
     int   lcd_brightness;    // 0-100 %
+    // Per-channel MQTT publish config
+    bool  pub_en[PUB_COUNT];
+    char  pub_topic[PUB_COUNT][64];
     // Touch calibration: raw ADC values at screen edges
     int   touch_x0;          // raw X when screen_x = 0
     int   touch_x319;        // raw X when screen_x = 319

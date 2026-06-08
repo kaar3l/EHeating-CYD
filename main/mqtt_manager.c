@@ -1,5 +1,8 @@
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "esp_log.h"
 #include "mqtt_client.h"
 #include "mqtt_manager.h"
@@ -8,6 +11,47 @@
 
 static const char *TAG = "mqtt";
 static esp_mqtt_client_handle_t s_client = NULL;
+
+static void publish_task(void *arg)
+{
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(10000));  /* publish every 10 s */
+        if (!s_client) continue;
+
+        state_lock();
+        float t1   = g_state.sensor1_temp; bool s1ok = g_state.sensor1_ok;
+        float t2   = g_state.sensor2_temp; bool s2ok = g_state.sensor2_ok;
+        float sol  = g_state.solar_avg_10min;
+        bool  r1   = g_state.relay1_state;
+        bool  r2   = g_state.relay2_state;
+        state_unlock();
+
+        char val[32];
+
+        if (g_cfg.pub_en[PUB_SENSOR1] && g_cfg.pub_topic[PUB_SENSOR1][0] && s1ok) {
+            snprintf(val, sizeof(val), "%.1f", t1);
+            esp_mqtt_client_publish(s_client, g_cfg.pub_topic[PUB_SENSOR1], val, 0, 0, 0);
+        }
+        if (g_cfg.pub_en[PUB_SENSOR2] && g_cfg.pub_topic[PUB_SENSOR2][0] && s2ok) {
+            snprintf(val, sizeof(val), "%.1f", t2);
+            esp_mqtt_client_publish(s_client, g_cfg.pub_topic[PUB_SENSOR2], val, 0, 0, 0);
+        }
+        if (g_cfg.pub_en[PUB_SOLAR] && g_cfg.pub_topic[PUB_SOLAR][0]) {
+            snprintf(val, sizeof(val), "%.1f", sol);
+            esp_mqtt_client_publish(s_client, g_cfg.pub_topic[PUB_SOLAR], val, 0, 0, 0);
+        }
+        if (g_cfg.pub_en[PUB_SOLAR_THR] && g_cfg.pub_topic[PUB_SOLAR_THR][0]) {
+            snprintf(val, sizeof(val), "%.1f", g_cfg.solar_threshold);
+            esp_mqtt_client_publish(s_client, g_cfg.pub_topic[PUB_SOLAR_THR], val, 0, 0, 0);
+        }
+        if (g_cfg.pub_en[PUB_RELAY1] && g_cfg.pub_topic[PUB_RELAY1][0]) {
+            esp_mqtt_client_publish(s_client, g_cfg.pub_topic[PUB_RELAY1], r1 ? "ON" : "OFF", 0, 0, 0);
+        }
+        if (g_cfg.pub_en[PUB_RELAY2] && g_cfg.pub_topic[PUB_RELAY2][0]) {
+            esp_mqtt_client_publish(s_client, g_cfg.pub_topic[PUB_RELAY2], r2 ? "ON" : "OFF", 0, 0, 0);
+        }
+    }
+}
 
 static void push_solar(float watts)
 {
@@ -81,6 +125,11 @@ void mqtt_manager_start(void)
     esp_mqtt_client_register_event(s_client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
     esp_mqtt_client_start(s_client);
     ESP_LOGI(TAG, "MQTT client started -> %s", uri);
+    static bool s_publish_task_started = false;
+    if (!s_publish_task_started) {
+        s_publish_task_started = true;
+        xTaskCreate(publish_task, "mqtt_pub", 2048, NULL, 3, NULL);
+    }
 }
 
 void mqtt_manager_stop(void)

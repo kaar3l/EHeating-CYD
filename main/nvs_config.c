@@ -29,6 +29,15 @@ void config_load_defaults(void)
     strncpy(g_cfg.mqtt_topic, "solar/power", sizeof(g_cfg.mqtt_topic) - 1);
     strncpy(g_cfg.ntp_server, "pool.ntp.org", sizeof(g_cfg.ntp_server) - 1);
     strncpy(g_cfg.tz, "EET-2EEST,M3.5.0/3,M10.5.0/4", sizeof(g_cfg.tz) - 1);  // Estonia, w/ DST
+    static const char *pub_defaults[PUB_COUNT] = {
+        "eheating/sensor1", "eheating/sensor2",
+        "eheating/solar_power", "eheating/solar_threshold",
+        "eheating/relay1", "eheating/relay2",
+    };
+    for (int i = 0; i < PUB_COUNT; i++) {
+        g_cfg.pub_en[i] = false;
+        strncpy(g_cfg.pub_topic[i], pub_defaults[i], sizeof(g_cfg.pub_topic[i]) - 1);
+    }
 }
 
 esp_err_t config_load(void)
@@ -82,6 +91,14 @@ esp_err_t config_load(void)
     LOAD_I32("tc2_x319", g_cfg.touch_x319);
     LOAD_I32("tc2_y0",   g_cfg.touch_y0);
     LOAD_I32("tc2_y239", g_cfg.touch_y239);
+    { char key[16];
+      for (int i = 0; i < PUB_COUNT; i++) {
+        snprintf(key, sizeof(key), "pub_en%d", i);
+        LOAD_U8(key, g_cfg.pub_en[i]);
+        snprintf(key, sizeof(key), "pub_tp%d", i);
+        LOAD_STR(key, g_cfg.pub_topic[i]);
+      }
+    }
 
     nvs_close(h);
     ESP_LOGI(TAG, "config loaded");
@@ -118,6 +135,14 @@ esp_err_t config_save(void)
     SAVE_I32("tc2_x319", g_cfg.touch_x319);
     SAVE_I32("tc2_y0",   g_cfg.touch_y0);
     SAVE_I32("tc2_y239", g_cfg.touch_y239);
+    { char key[16];
+      for (int i = 0; i < PUB_COUNT; i++) {
+        snprintf(key, sizeof(key), "pub_en%d", i);
+        SAVE_U8(key, g_cfg.pub_en[i]);
+        snprintf(key, sizeof(key), "pub_tp%d", i);
+        SAVE_STR(key, g_cfg.pub_topic[i]);
+      }
+    }
 
     err = nvs_commit(h);
     nvs_close(h);
