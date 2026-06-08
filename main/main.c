@@ -265,6 +265,7 @@ void app_main(void)
     // Display init
     display_init();
     display_boot_screen();
+    vTaskDelay(pdMS_TO_TICKS(2000));
 
     // DS18B20 init and scan
     if (ds18b20_init(ONE_WIRE_BUS) == ESP_OK) {

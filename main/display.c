@@ -504,7 +504,7 @@ void display_status_msg(const char *line1, const char *line2, uint16_t color1)
 void display_boot_screen(void)
 {
     display_clear(COLOR_BLACK);
-    const int scale = 3;
+    const int scale = 4;
     const int sw    = 8 * scale;
     const char *title = "EHeating";
     int title_w = sw + 4 + (int)strlen(title) * sw;
