@@ -588,20 +588,33 @@ void display_update_status(void)
     y += 5;
 
     snprintf(buf, sizeof(buf), "SSID: %.13s", g_cfg.wifi_ssid[0] ? g_cfg.wifi_ssid : "---");
-    display_draw_string(COL_X, y + (WIFI_ROW_H - 8) / 2, buf, COLOR_ORANGE, COLOR_BLACK, 1);
+    display_draw_string(COL_X, y + (WIFI_ROW_H - 8) / 2, buf, COLOR_WHITE, COLOR_BLACK, 1);
     y += WIFI_ROW_H;
 
     snprintf(buf, sizeof(buf), "IP: %-15s", ip);
-    display_draw_string(COL_X, y + (WIFI_ROW_H - 8) / 2, buf, COLOR_ORANGE, COLOR_BLACK, 1);
+    display_draw_string(COL_X, y + (WIFI_ROW_H - 8) / 2, buf, COLOR_WHITE, COLOR_BLACK, 1);
     y += WIFI_ROW_H;
 
-    snprintf(buf, sizeof(buf), "RSSI: %d dBm  Ch:%d", rssi, chan);
-    uint16_t rssi_color;
-    if      (rssi > -70)  rssi_color = COLOR_GREEN;
-    else if (rssi >= -85) rssi_color = COLOR_YELLOW;
-    else if (rssi >= -100) rssi_color = COLOR_ORANGE;
-    else                  rssi_color = COLOR_RED;
-    display_draw_string(COL_X, y + (WIFI_ROW_H - 8) / 2, buf, rssi_color, COLOR_BLACK, 1);
+    {
+        uint16_t rssi_color;
+        if      (rssi > -70)   rssi_color = COLOR_GREEN;
+        else if (rssi >= -85)  rssi_color = COLOR_YELLOW;
+        else if (rssi >= -100) rssi_color = COLOR_ORANGE;
+        else                   rssi_color = COLOR_RED;
+
+        int yy = y + (WIFI_ROW_H - 8) / 2;
+        int cx = COL_X;
+        display_draw_string(cx, yy, "RSSI: ", COLOR_WHITE, COLOR_BLACK, 1);
+        cx += (int)strlen("RSSI: ") * 8;
+
+        char num[16];
+        snprintf(num, sizeof(num), "%d dBm", rssi);
+        display_draw_string(cx, yy, num, rssi_color, COLOR_BLACK, 1);
+        cx += (int)strlen(num) * 8;
+
+        snprintf(buf, sizeof(buf), "  Ch:%d   ", chan);
+        display_draw_string(cx, yy, buf, COLOR_WHITE, COLOR_BLACK, 1);
+    }
     y += WIFI_ROW_H;
     /* 4px space above and below separator line */
     display_fill_rect(0, y, LCD_WIDTH, 1, COLOR_GRAY);
