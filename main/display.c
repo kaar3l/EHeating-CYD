@@ -343,27 +343,28 @@ static void blit_glyph(int x, int y, const uint8_t *glyph, uint16_t fg, uint16_t
     if (!s_spi) return;
     int w = 8 * scale, h = 8 * scale;
 
-    /* Bilinear-sample the 1-bit glyph and blend fg/bg by coverage — smooths
-     * scaled-up edges (anti-aliasing) while staying exact at scale 1. */
+    /* Supersample the 1-bit glyph (scale x scale point-samples per output
+     * pixel) and blend fg/bg by hit coverage. Solid interior pixels score
+     * 100% coverage (full, sharp fg color) — only pixels actually straddling
+     * a glyph edge get partial blending, so strokes stay crisp instead of
+     * smearing like bilinear interpolation does. Exact at scale 1. */
+    int   ss       = scale;
+    float inv_tot  = 1.f / (float)(ss * ss);
     for (int py = 0; py < h; py++) {
-        float fy = (float)py / scale;
-        int   y0 = (int)fy;
-        int   y1 = y0 + 1 < 8 ? y0 + 1 : 7;
-        float wy = fy - y0;
         for (int px = 0; px < w; px++) {
-            float fx = (float)px / scale;
-            int   x0 = (int)fx;
-            int   x1 = x0 + 1 < 8 ? x0 + 1 : 7;
-            float wx = fx - x0;
-
-            float v00 = (glyph[y0] & (1 << x0)) ? 1.f : 0.f;
-            float v10 = (glyph[y0] & (1 << x1)) ? 1.f : 0.f;
-            float v01 = (glyph[y1] & (1 << x0)) ? 1.f : 0.f;
-            float v11 = (glyph[y1] & (1 << x1)) ? 1.f : 0.f;
-            float cov = v00 * (1 - wx) * (1 - wy) + v10 * wx * (1 - wy)
-                      + v01 * (1 - wx) * wy       + v11 * wx * wy;
-
-            s_pixbuf[py * w + px] = enc(blend565(fg, bg, (uint8_t)(cov * 255.f + 0.5f)));
+            int hits = 0;
+            for (int sy = 0; sy < ss; sy++) {
+                float fy = (py + (sy + 0.5f) / ss) / scale;
+                int   gy = (int)fy;
+                if (gy > 7) gy = 7;
+                for (int sx = 0; sx < ss; sx++) {
+                    float fx = (px + (sx + 0.5f) / ss) / scale;
+                    int   gx = (int)fx;
+                    if (gx > 7) gx = 7;
+                    if (glyph[gy] & (1 << gx)) hits++;
+                }
+            }
+            s_pixbuf[py * w + px] = enc(blend565(fg, bg, (uint8_t)(hits * inv_tot * 255.f + 0.5f)));
         }
     }
 
