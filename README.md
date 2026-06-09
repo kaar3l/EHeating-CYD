@@ -5,12 +5,15 @@ ESP-IDF firmware for the **ESP32-2432S028** ("Cheap Yellow Display") that contro
 ## Features
 
 - **WiFi captive portal** — first-boot AP mode with auto-opening config page (Android, iOS, Windows)
+- **mDNS discovery** — reachable at `eheating-XXYYZZ.local` without knowing the IP
 - **MQTT solar power input** — subscribes to configurable topic, computes 10-minute rolling average
+- **MQTT publishing** — per-channel publish (sensor temps, solar power, thresholds, relay states) with individually configurable topics and enable/disable checkboxes
 - **Temperature hysteresis** — Sensor1 controls Relay1 in 55–60 °C band (both limits configurable)
 - **Safety lockout** — Sensor1 or Sensor2 triggers permanent relay-off if its temperature exceeds its own limit (each configurable, default 65 °C); web UI / LCD show which sensor tripped it
-- **Web UI** — status dashboard (auto-refresh), WiFi setup, MQTT config, settings, Relay2 manual toggle
+- **Timezone + NTP** — POSIX TZ string (default: Estonia + EU DST rule), NTP sync via configurable server
+- **Web UI** — status dashboard (auto-refresh), WiFi setup, MQTT config, settings, Relay2 manual toggle; styled to match EleRelay design
 - **OTA firmware update** — upload `.bin` via browser
-- **320×240 ILI9341 LCD** — live status: temps, solar power vs threshold, relay states, WiFi/MQTT/RSSI/IP
+- **320×240 ILI9341 LCD** — anti-aliased font renderer, sun logo, orange accent colour, live status screen and 2-second branded splash screen on boot
 
 ## Hardware
 
@@ -69,11 +72,11 @@ idf.py -p /dev/ttyUSB0 flash
 
 ### First Boot
 
-1. Device starts WiFi AP **`EHeating-Setup`** (open, no password)
+1. Device shows branded splash screen for 2 seconds, then starts WiFi AP **`EHeating-Setup`** (open, no password)
 2. Connect phone/laptop to that network — config page opens automatically
 3. Enter your WiFi credentials → Save
 4. Device connects to your network and shuts down the AP
-5. Open `http://<device-ip>/` for the status dashboard
+5. Find it at `http://eheating-XXYYZZ.local/` or by IP shown on the LCD
 
 ## Web Interface
 
@@ -81,30 +84,32 @@ idf.py -p /dev/ttyUSB0 flash
 |-----|-------------|
 | `/` | Status dashboard (auto-refreshes every 5 s) |
 | `/wifi` | WiFi SSID / password |
-| `/mqtt` | MQTT on/off, server, port, subscribe topic |
-| `/settings` | Solar threshold (W), temp min/max (°C), safety temps for Sensor1 & Sensor2 (°C) |
+| `/mqtt` | MQTT on/off, server, port, subscribe topic, per-channel publish topics |
+| `/settings` | Solar threshold (W), temp min/max (°C), safety temps for Sensor1 & Sensor2 (°C), timezone |
 | `/relay2` | Toggle Relay 2 manually |
 | `/ota` | Upload new firmware `.bin` |
 
 ## LCD Display
 
-The status screen shows (updated every second, flicker-free):
+The status screen shows (updated every second, flicker-free). All text is rendered with supersampled anti-aliased scaling for crisp results on the LCD.
 
 | Row | Content | Colour |
 |-----|---------|--------|
-| Title | `EHeating` + WiFi/MQTT indicators | Cyan / Green / Gray |
+| Title | ☀ logo + `EHeating` + clock | Orange |
 | T1 | Water temperature (Sensor 1) | White / Red on error |
 | T2 | Safety temperature (Sensor 2) | Yellow / Red on error |
 | Solar | 10-min average solar power | Green if above threshold, Red if below |
 | Thr | Configured solar threshold | Yellow |
 | Relay1 | Heating relay state | Green ON / Red OFF |
 | Relay2 | Manual relay state | Green ON / Red OFF |
-| SSID | Connected WiFi network | Gray |
-| IP | Device IP address | Gray |
-| RSSI | WiFi signal strength (dBm) | Gray |
+| SSID | Connected WiFi network | White |
+| IP | Device IP address | White |
+| RSSI + Channel | Signal strength (dBm) + WiFi channel | Green / Yellow / Orange / Red by strength |
 | Lockout | Safety lockout banner, names tripped sensor (bottom) | Red when active |
 
 ## MQTT
+
+### Subscribe (incoming solar power)
 
 The device subscribes to a configurable topic and expects **plain-text float values** in watts (negative = producing):
 
@@ -113,6 +118,21 @@ solar/power  →  "-1250.5"   (means 1250.5 W being produced)
 ```
 
 The 10-minute rolling average is recomputed every second. Relay 1 activates when this average exceeds the configured threshold.
+
+### Publish (outgoing telemetry)
+
+Each channel can be individually enabled/disabled and pointed at a custom topic via the MQTT settings page. Values are published every 10 seconds when connected.
+
+| Channel | Default topic | Value |
+|---------|--------------|-------|
+| Sensor 1 temp | `eheating/sensor1` | `°C` float, one decimal |
+| Sensor 2 temp | `eheating/sensor2` | `°C` float, one decimal |
+| Solar power (10 min avg) | `eheating/solar_power` | `W` float, one decimal |
+| Solar threshold | `eheating/solar_threshold` | `W` float, one decimal |
+| Relay 1 state | `eheating/relay1` | `ON` / `OFF` |
+| Relay 2 state | `eheating/relay2` | `ON` / `OFF` |
+
+All publish channels are **disabled by default** — enable selectively on the `/mqtt` page.
 
 ## Default Settings
 
@@ -124,6 +144,7 @@ The 10-minute rolling average is recomputed every second. Relay 1 activates when
 | Safety temp (Sensor 1) | 65 °C |
 | Safety temp (Sensor 2) | 65 °C |
 | MQTT port | 1883 |
+| Timezone | `EET-2EEST,M3.5.0/3,M10.5.0/4` (Estonia + EU DST) |
 
 All values configurable via `/settings` and `/mqtt`, stored in NVS flash.
 
@@ -145,13 +166,13 @@ All values configurable via `/settings` and `/mqtt`, stored in NVS flash.
     ├── pin_config.h            # all GPIO and LCD defines
     ├── app_state.h             # global state (mutex-protected)
     ├── nvs_config.[ch]         # NVS persistence
-    ├── wifi_manager.[ch]       # AP + STA + IP/RSSI helpers
+    ├── wifi_manager.[ch]       # AP + STA + IP/RSSI/channel helpers
     ├── dns_server.[ch]         # captive portal DNS (UDP/53)
     ├── web_server.[ch]         # HTTP server + all page handlers
-    ├── mqtt_manager.[ch]       # MQTT client + 10-min ring buffer
+    ├── mqtt_manager.[ch]       # MQTT client, solar ring buffer, publish task
     ├── ds18b20.[ch]            # 1-Wire GPIO bitbang driver
     ├── relay_control.[ch]      # relay logic + safety lockout
-    ├── display.[ch]            # ILI9341 SPI driver + font renderer
+    ├── display.[ch]            # ILI9341 SPI driver, AA font renderer, sun logo
     └── ota_manager.[ch]        # firmware upload endpoint
 ```
 
