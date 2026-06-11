@@ -147,25 +147,31 @@ static esp_err_t status_handler(httpd_req_t *req)
     if (s1ok) snprintf(t1_str, sizeof(t1_str), "%.1f C", t1); else strncpy(t1_str, "ERROR", sizeof(t1_str));
     if (s2ok) snprintf(t2_str, sizeof(t2_str), "%.1f C", t2); else strncpy(t2_str, "ERROR", sizeof(t2_str));
 
-    char lock_msg[80] = "";
+    char lock_msg[256] = "";
     if (lock) {
         snprintf(lock_msg, sizeof(lock_msg),
-                 "<p class='err'><b>!! SAFETY LOCKOUT - Sensor%d overheated !!</b></p>",
+                 "<p class='err'><b>!! SAFETY LOCKOUT - Sensor%d overheated !!</b></p>"
+                 "<form method='GET' action='/lockout/reset'>"
+                 "<input type='submit' value='Reset Lockout'></form>",
                  lock_sensor);
+    } else if (g_cfg.last_lockout_sensor) {
+        snprintf(lock_msg, sizeof(lock_msg),
+                 "<p class='note'>Last lockout: Sensor%d at %s</p>",
+                 g_cfg.last_lockout_sensor, g_cfg.last_lockout_time);
     }
 
-    char body[1800];
+    char body[3000];
     snprintf(body, sizeof(body),
         "<h2>EHeating Status</h2>"
-        "<p>WiFi: <b class='%s'>%s</b> (%s) &nbsp; MQTT: <b class='%s'>%s</b></p>"
-        "%s"
+        "<p>WiFi: <b class='%s'>%s</b> (%s, %s) &nbsp; MQTT: <b class='%s'>%s</b></p>"
+        "<div id='lockmsg'>%s</div>"
         "<table>"
-        "<tr><td>Sensor1 (water):</td><td><b>%s</b></td></tr>"
-        "<tr><td>Sensor2 (safety):</td><td><b>%s</b></td></tr>"
-        "<tr><td>Solar power (10min avg):</td><td><b>%.0f W</b></td></tr>"
-        "<tr><td>Solar threshold:</td><td><b>%.0f W</b></td></tr>"
-        "<tr><td>Relay1 (solar heat):</td><td><b class='%s'>%s</b></td></tr>"
-        "<tr><td>Relay2 (manual):</td><td><b class='%s'>%s</b></td></tr>"
+        "<tr><td>Sensor1 (water):</td><td><b id='t1'>%s</b></td></tr>"
+        "<tr><td>Sensor2 (safety):</td><td><b id='t2'>%s</b></td></tr>"
+        "<tr><td>Solar power (10min avg):</td><td><b id='sol' class='%s'>%.0f W</b></td></tr>"
+        "<tr><td>Solar threshold:</td><td><b id='thr'>%.0f W</b></td></tr>"
+        "<tr><td>Relay1 (solar heat):</td><td><b id='r1' class='%s'>%s</b></td></tr>"
+        "<tr><td>Relay2 (manual):</td><td><b id='r2' class='%s'>%s</b></td></tr>"
         "<tr><td colspan=2><hr></td></tr>"
         "<tr><td>T1 address:</td><td><code>%s</code></td></tr>"
         "<tr><td>T2 address:</td><td><code>%s</code></td></tr>"
@@ -173,13 +179,35 @@ static esp_err_t status_handler(httpd_req_t *req)
         "<tr><td>MQTT topic:</td><td><code>%s</code></td></tr>"
         "</table>"
         "<br><form method='GET' action='/relay2'>"
-        "<input type='hidden' name='state' value='%s'>"
+        "<input type='hidden' id='r2state' name='state' value='%s'>"
         "<input type='submit' value='Toggle Relay2'></form>"
-        "<meta http-equiv='refresh' content='5'>",
+        "<script>"
+        "function upd(){fetch('/status.json').then(r=>r.json()).then(d=>{"
+        "document.getElementById('t1').textContent=d.s1ok?(d.t1.toFixed(1)+' C'):'ERROR';"
+        "document.getElementById('t2').textContent=d.s2ok?(d.t2.toFixed(1)+' C'):'ERROR';"
+        "var sol=document.getElementById('sol');"
+        "sol.textContent=d.sol.toFixed(0)+' W';"
+        "sol.className=d.sol>d.thr?'ok':'err';"
+        "document.getElementById('thr').textContent=d.thr.toFixed(0)+' W';"
+        "var r1=document.getElementById('r1');"
+        "r1.textContent=d.r1?'ON':'OFF'; r1.className=d.r1?'ok':'err';"
+        "var r2=document.getElementById('r2');"
+        "r2.textContent=d.r2?'ON':'OFF'; r2.className=d.r2?'ok':'err';"
+        "document.getElementById('r2state').value=d.r2?'off':'on';"
+        "var lm=document.getElementById('lockmsg');"
+        "if(d.lock){lm.innerHTML=\"<p class='err'><b>!! SAFETY LOCKOUT - Sensor\"+d.lock_sensor+\" overheated !!</b></p>"
+            "<form method='GET' action='/lockout/reset'><input type='submit' value='Reset Lockout'></form>\";}"
+        "else if(d.last_lock_sensor){lm.innerHTML=\"<p class='note'>Last lockout: Sensor\"+d.last_lock_sensor+\" at \"+d.last_lock_time+\"</p>\";}"
+        "else lm.innerHTML='';"
+        "});}"
+        "setInterval(upd,5000);"
+        "</script>",
         wifi ? "ok" : "err", wifi ? "Connected" : "Disconnected", ip,
+        g_cfg.wifi_ssid[0] ? g_cfg.wifi_ssid : "---",
         mqtt ? "ok" : "err", mqtt ? "Connected" : "Disconnected",
         lock_msg,
-        t1_str, t2_str, sol, g_cfg.solar_threshold,
+        t1_str, t2_str,
+        sol > g_cfg.solar_threshold ? "ok" : "err", sol, g_cfg.solar_threshold,
         r1 ? "ok" : "err", r1 ? "ON" : "OFF",
         r2 ? "ok" : "err", r2 ? "ON" : "OFF",
         s1addr, s2addr,
@@ -188,6 +216,37 @@ static esp_err_t status_handler(httpd_req_t *req)
         r2 ? "off" : "on"
     );
     return send_html(req, body);
+}
+
+// ---- Status JSON (for AJAX polling) ----
+
+static esp_err_t status_json_handler(httpd_req_t *req)
+{
+    state_lock();
+    float t1   = g_state.sensor1_temp;
+    float t2   = g_state.sensor2_temp;
+    float sol  = g_state.solar_avg_10min;
+    bool  r1   = g_state.relay1_state;
+    bool  r2   = g_state.relay2_state;
+    bool  lock = g_state.error_lockout;
+    int   lock_sensor = g_state.lockout_sensor;
+    bool  s1ok = g_state.sensor1_ok;
+    bool  s2ok = g_state.sensor2_ok;
+    state_unlock();
+
+    char body[384];
+    snprintf(body, sizeof(body),
+        "{\"t1\":%.1f,\"s1ok\":%s,\"t2\":%.1f,\"s2ok\":%s,"
+        "\"sol\":%.0f,\"thr\":%.0f,\"r1\":%s,\"r2\":%s,"
+        "\"lock\":%s,\"lock_sensor\":%d,"
+        "\"last_lock_sensor\":%d,\"last_lock_time\":\"%s\"}",
+        t1, s1ok ? "true" : "false", t2, s2ok ? "true" : "false",
+        sol, g_cfg.solar_threshold, r1 ? "true" : "false", r2 ? "true" : "false",
+        lock ? "true" : "false", lock_sensor,
+        g_cfg.last_lockout_sensor, g_cfg.last_lockout_time);
+
+    httpd_resp_set_type(req, "application/json");
+    return httpd_resp_sendstr(req, body);
 }
 
 // ---- WiFi config page ----
@@ -351,11 +410,25 @@ static esp_err_t settings_save_handler(httpd_req_t *req)
     get_field(body, "ntp",    ntp,    sizeof(ntp));
     get_field(body, "tz",     tz,     sizeof(tz));
 
-    if (thr[0])    g_cfg.solar_threshold = strtof(thr,  NULL);
-    if (tmin[0])   g_cfg.temp_min        = strtof(tmin, NULL);
-    if (tmax[0])   g_cfg.temp_max        = strtof(tmax, NULL);
-    if (tsafe1[0]) g_cfg.temp_safety1    = strtof(tsafe1, NULL);
-    if (tsafe[0])  g_cfg.temp_safety     = strtof(tsafe, NULL);
+    float new_thr    = thr[0]    ? strtof(thr,    NULL) : g_cfg.solar_threshold;
+    float new_tmin   = tmin[0]   ? strtof(tmin,   NULL) : g_cfg.temp_min;
+    float new_tmax   = tmax[0]   ? strtof(tmax,   NULL) : g_cfg.temp_max;
+    float new_tsafe1 = tsafe1[0] ? strtof(tsafe1, NULL) : g_cfg.temp_safety1;
+    float new_tsafe  = tsafe[0]  ? strtof(tsafe,  NULL) : g_cfg.temp_safety;
+
+    if (new_thr < 0 || new_tmin >= new_tmax || new_tmax >= new_tsafe1 || new_tsafe <= 0) {
+        return send_html(req,
+            "<p class='err'>Invalid settings: require threshold &gt;= 0, "
+            "temp min &lt; temp max &lt; safety temp (sensor1), and safety temp (sensor2) &gt; 0. "
+            "Nothing saved.</p>"
+            "<meta http-equiv='refresh' content='3;url=/settings'>");
+    }
+
+    g_cfg.solar_threshold = new_thr;
+    g_cfg.temp_min        = new_tmin;
+    g_cfg.temp_max        = new_tmax;
+    g_cfg.temp_safety1    = new_tsafe1;
+    g_cfg.temp_safety     = new_tsafe;
     if (ntp[0])    strncpy(g_cfg.ntp_server, ntp, sizeof(g_cfg.ntp_server) - 1);
     if (tz[0]) {
         strncpy(g_cfg.tz, tz, sizeof(g_cfg.tz) - 1);
@@ -378,6 +451,30 @@ static esp_err_t relay2_handler(httpd_req_t *req)
     httpd_query_key_value(query, "state", state, sizeof(state));
     g_cfg.relay2_manual = (strcmp(state, "on") == 0);
     config_save();
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "/");
+    return httpd_resp_send(req, NULL, 0);
+}
+
+// ---- Lockout reset ----
+
+static esp_err_t lockout_reset_confirm_handler(httpd_req_t *req)
+{
+    return send_html(req,
+        "<h2>Reset Safety Lockout</h2>"
+        "<p>This clears the active safety lockout and re-enables relay control. "
+        "Only do this after confirming the overheat cause is resolved.</p>"
+        "<form method='POST' action='/lockout/reset'>"
+        "<input type='submit' value='Confirm Reset'></form>");
+}
+
+static esp_err_t lockout_reset_handler(httpd_req_t *req)
+{
+    state_lock();
+    g_state.error_lockout  = false;
+    g_state.lockout_sensor = 0;
+    state_unlock();
+
     httpd_resp_set_status(req, "302 Found");
     httpd_resp_set_hdr(req, "Location", "/");
     return httpd_resp_send(req, NULL, 0);
@@ -409,6 +506,7 @@ void web_server_start(void)
 } while(0)
 
     REG("/",                    HTTP_GET,  status_handler);
+    REG("/status.json",         HTTP_GET,  status_json_handler);
     REG("/wifi",                HTTP_GET,  wifi_page_handler);
     REG("/wifi",                HTTP_POST, wifi_save_handler);
     REG("/mqtt",                HTTP_GET,  mqtt_page_handler);
@@ -416,6 +514,8 @@ void web_server_start(void)
     REG("/settings",            HTTP_GET,  settings_page_handler);
     REG("/settings",            HTTP_POST, settings_save_handler);
     REG("/relay2",              HTTP_GET,  relay2_handler);
+    REG("/lockout/reset",       HTTP_GET,  lockout_reset_confirm_handler);
+    REG("/lockout/reset",       HTTP_POST, lockout_reset_handler);
 
     // Captive portal detection URLs
     REG("/generate_204",        HTTP_GET,  captive_redirect);

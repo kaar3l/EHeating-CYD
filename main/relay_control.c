@@ -1,5 +1,6 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "relay_control.h"
 #include "app_state.h"
 #include "nvs_config.h"
@@ -46,6 +47,11 @@ void relay_set2(bool on)
     ESP_LOGI(TAG, "relay2 -> %s", on ? "ON" : "OFF");
 }
 
+// Minimum time relay1 must stay in a state before it can flip again,
+// to avoid chatter when solar power hovers near the threshold.
+#define RELAY1_MIN_HOLD_US (60LL * 1000000LL)
+static int64_t s_relay1_last_change_us = -RELAY1_MIN_HOLD_US;
+
 void relay_evaluate(void)
 {
     state_lock();
@@ -54,6 +60,7 @@ void relay_evaluate(void)
     bool  s1_ok    = g_state.sensor1_ok;
     float solar    = g_state.solar_avg_10min;
     bool  temp_ok  = g_state.temp_ok;
+    bool  cur_relay1 = g_state.relay1_state;
     state_unlock();
 
     if (lockout) {
@@ -84,7 +91,14 @@ void relay_evaluate(void)
         want_relay1 = (solar > g_cfg.solar_threshold) && temp_ok;
     }
 
-    relay_set1(want_relay1);
+    if (want_relay1 != cur_relay1) {
+        int64_t now = esp_timer_get_time();
+        if (now - s_relay1_last_change_us >= RELAY1_MIN_HOLD_US) {
+            relay_set1(want_relay1);
+            s_relay1_last_change_us = now;
+        }
+        // else: too soon since last flip, hold current state
+    }
 
     // relay2: manual control
     relay_set2(g_cfg.relay2_manual);

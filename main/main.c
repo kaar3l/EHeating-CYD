@@ -115,6 +115,8 @@ static void sensor_task(void *arg)
 
         // safety lockout — skip first 5 reads (10 s) to ignore DS18B20 power-on 85°C value
         static int s_startup_reads = 0;
+        bool new_lockout = false;
+        int  new_lockout_sensor = 0;
         if (s_startup_reads < 5) {
             s_startup_reads++;
         } else if (!g_state.error_lockout) {
@@ -122,13 +124,27 @@ static void sensor_task(void *arg)
                 ESP_LOGE(TAG, "SAFETY LOCKOUT: sensor1 temp %.1f >= %.1f", t1, g_cfg.temp_safety1);
                 g_state.error_lockout  = true;
                 g_state.lockout_sensor = 1;
+                new_lockout = true;
+                new_lockout_sensor = 1;
             } else if (ok2 && t2 >= g_cfg.temp_safety) {
                 ESP_LOGE(TAG, "SAFETY LOCKOUT: sensor2 temp %.1f >= %.1f", t2, g_cfg.temp_safety);
                 g_state.error_lockout  = true;
                 g_state.lockout_sensor = 2;
+                new_lockout = true;
+                new_lockout_sensor = 2;
             }
         }
         state_unlock();
+
+        if (new_lockout) {
+            g_cfg.last_lockout_sensor = new_lockout_sensor;
+            time_t now = time(NULL);
+            struct tm tm_now;
+            localtime_r(&now, &tm_now);
+            strftime(g_cfg.last_lockout_time, sizeof(g_cfg.last_lockout_time),
+                     "%Y-%m-%d %H:%M:%S", &tm_now);
+            config_save();
+        }
 
         vTaskDelay(pdMS_TO_TICKS(2000));
     }
@@ -147,13 +163,20 @@ static void relay_task(void *arg)
 // ---- Solar ring fill task ----
 // Pushes current solar power into the ring buffer every second so the
 // 10-minute average always reflects time, not message rate.
+// MQTT solar reading older than this is considered stale (3x publish interval)
+#define SOLAR_STALE_US (30LL * 1000000LL)
+
 static void solar_ring_task(void *arg)
 {
     while (1) {
         state_lock();
         float current_power = g_state.solar_power;
+        int64_t last_rx = g_state.solar_last_rx_us;
+        bool stale = g_cfg.mqtt_enabled && last_rx > 0 &&
+                     (esp_timer_get_time() - last_rx) > SOLAR_STALE_US;
+        float sample = stale ? 0.0f : current_power;
         uint32_t idx = g_state.solar_ring_idx;
-        g_state.solar_ring[idx] = current_power;
+        g_state.solar_ring[idx] = sample;
         g_state.solar_ring_idx  = (idx + 1) % SOLAR_RING_SIZE;
         if (g_state.solar_ring_count < SOLAR_RING_SIZE)
             g_state.solar_ring_count++;

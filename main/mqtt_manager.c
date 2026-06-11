@@ -4,6 +4,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "esp_timer.h"
+#include "esp_mac.h"
 #include "mqtt_client.h"
 #include "mqtt_manager.h"
 #include "app_state.h"
@@ -57,6 +59,7 @@ static void push_solar(float watts)
 {
     state_lock();
     g_state.solar_power = watts;
+    g_state.solar_last_rx_us = esp_timer_get_time();
     // push into ring buffer (one sample per MQTT message, capped at ring size)
     uint32_t idx = g_state.solar_ring_idx;
     g_state.solar_ring[idx] = watts;
@@ -73,6 +76,48 @@ static void push_solar(float watts)
     state_unlock();
 }
 
+// Publish Home Assistant MQTT discovery configs (retained) for enabled
+// publish channels, so sensors/relays auto-appear in HA without manual YAML.
+static void publish_ha_discovery(void)
+{
+    uint8_t mac[6];
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    char node_id[24];
+    snprintf(node_id, sizeof(node_id), "eheating_%02x%02x%02x", mac[3], mac[4], mac[5]);
+
+    static const char *obj_id[PUB_COUNT]    = {"sensor1", "sensor2", "solar", "solar_threshold", "relay1", "relay2"};
+    static const char *names[PUB_COUNT]     = {"Water Temp", "Safety Temp", "Solar Power", "Solar Threshold", "Relay 1", "Relay 2"};
+    static const char *component[PUB_COUNT] = {"sensor", "sensor", "sensor", "sensor", "binary_sensor", "binary_sensor"};
+    static const char *unit[PUB_COUNT]      = {"\xC2\xB0""C", "\xC2\xB0""C", "W", "W", "", ""};
+    static const char *dev_class[PUB_COUNT] = {"temperature", "temperature", "power", "power", "running", "running"};
+
+    char topic[160];
+    char payload[512];
+
+    for (int i = 0; i < PUB_COUNT; i++) {
+        if (!g_cfg.pub_en[i] || !g_cfg.pub_topic[i][0]) continue;
+
+        snprintf(topic, sizeof(topic), "homeassistant/%s/%s/%s/config",
+                 component[i], node_id, obj_id[i]);
+
+        if (strcmp(component[i], "sensor") == 0) {
+            snprintf(payload, sizeof(payload),
+                "{\"name\":\"%s\",\"stat_t\":\"%s\",\"unit_of_meas\":\"%s\","
+                "\"dev_cla\":\"%s\",\"uniq_id\":\"%s_%s\","
+                "\"dev\":{\"ids\":[\"%s\"],\"name\":\"EHeating\",\"mf\":\"DIY\",\"mdl\":\"ESP32-S3\"}}",
+                names[i], g_cfg.pub_topic[i], unit[i], dev_class[i], node_id, obj_id[i], node_id);
+        } else {
+            snprintf(payload, sizeof(payload),
+                "{\"name\":\"%s\",\"stat_t\":\"%s\",\"pl_on\":\"ON\",\"pl_off\":\"OFF\","
+                "\"uniq_id\":\"%s_%s\","
+                "\"dev\":{\"ids\":[\"%s\"],\"name\":\"EHeating\",\"mf\":\"DIY\",\"mdl\":\"ESP32-S3\"}}",
+                names[i], g_cfg.pub_topic[i], node_id, obj_id[i], node_id);
+        }
+
+        esp_mqtt_client_publish(s_client, topic, payload, 0, 1, 1); // QoS1, retain
+    }
+}
+
 static void mqtt_event_handler(void *arg, esp_event_base_t base,
                                int32_t event_id, void *event_data)
 {
@@ -86,6 +131,7 @@ static void mqtt_event_handler(void *arg, esp_event_base_t base,
         state_unlock();
         if (g_cfg.mqtt_topic[0])
             esp_mqtt_client_subscribe(s_client, g_cfg.mqtt_topic, 0);
+        publish_ha_discovery();
         break;
 
     case MQTT_EVENT_DISCONNECTED:

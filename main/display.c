@@ -565,25 +565,67 @@ void display_update_status(void)
     display_fill_rect(0, y, LCD_WIDTH, 1, COLOR_GRAY);
     y += 5;
 
-    snprintf(buf, sizeof(buf), s1ok ? "T1: %5.1f C" : "T1: ERROR  ", t1);
-    display_draw_string(COL_X, y, buf,
+    snprintf(buf, sizeof(buf), s1ok ? "T1:   %5.1f C" : "T1:   ERROR  ", t1);
+    display_draw_string(COL_X + 8, y, buf,
         s1ok ? COLOR_WHITE : COLOR_RED, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
 
-    snprintf(buf, sizeof(buf), s2ok ? "T2: %5.1f C" : "T2: ERROR  ", t2);
-    display_draw_string(COL_X, y, buf,
+    snprintf(buf, sizeof(buf), s2ok ? "T2:   %5.1f C" : "T2:   ERROR  ", t2);
+    display_draw_string(COL_X + 8, y, buf,
         s2ok ? COLOR_WHITE : COLOR_RED, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
 
-    snprintf(buf, sizeof(buf), "Solar: %6.0f W", sol);
-    display_draw_string(COL_X, y, buf,
+    int spark_y = y;
+
+    snprintf(buf, sizeof(buf), "Solar:%6.0f W", sol);
+    display_draw_string(COL_X - 8, y, buf,
         sol > g_cfg.solar_threshold ? COLOR_GREEN : COLOR_RED,
         COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
 
-    snprintf(buf, sizeof(buf), "Thr:   %6.0f W", g_cfg.solar_threshold);
-    display_draw_string(COL_X, y, buf, COLOR_YELLOW, COLOR_BLACK, FONT_SCALE);
+    snprintf(buf, sizeof(buf), "Thr:  %6.0f W", g_cfg.solar_threshold);
+    display_draw_string(COL_X - 8, y, buf, COLOR_YELLOW, COLOR_BLACK, FONT_SCALE);
     y += ROW_H;
+
+    /* Solar 10-min trend sparkline, right of the Solar/Thr rows */
+    {
+#define SPARK_COLS 38
+#define SPARK_COL_W 2
+#define SPARK_X (LCD_WIDTH - SPARK_COLS * SPARK_COL_W)
+#define SPARK_H (2 * ROW_H - 4)
+        float spark[SPARK_COLS] = {0};
+        int   counts[SPARK_COLS] = {0};
+
+        state_lock();
+        uint32_t cnt = g_state.solar_ring_count;
+        uint32_t idx = g_state.solar_ring_idx;
+        for (uint32_t i = 0; i < cnt; i++) {
+            uint32_t pos = (cnt < SOLAR_RING_SIZE) ? i : (idx + i) % SOLAR_RING_SIZE;
+            int col = (int)((uint64_t)i * SPARK_COLS / cnt);
+            if (col >= SPARK_COLS) col = SPARK_COLS - 1;
+            spark[col] += g_state.solar_ring[pos];
+            counts[col]++;
+        }
+        state_unlock();
+
+        float max_val = g_cfg.solar_threshold * 1.5f;
+        if (max_val < 1.0f) max_val = 1.0f;
+        for (int c = 0; c < SPARK_COLS; c++) {
+            if (counts[c]) spark[c] /= counts[c];
+            if (spark[c] > max_val) max_val = spark[c];
+        }
+
+        display_fill_rect(SPARK_X, spark_y, SPARK_COLS * SPARK_COL_W, SPARK_H, COLOR_BLACK);
+        for (int c = 0; c < SPARK_COLS; c++) {
+            int h = (int)(spark[c] / max_val * SPARK_H);
+            if (h > SPARK_H) h = SPARK_H;
+            if (h < 1 && counts[c]) h = 1;
+            uint16_t col_color = spark[c] > g_cfg.solar_threshold ? COLOR_GREEN : COLOR_GRAY;
+            if (h > 0)
+                display_fill_rect(SPARK_X + c * SPARK_COL_W, spark_y + (SPARK_H - h),
+                                   SPARK_COL_W, h, col_color);
+        }
+    }
     /* 4px space above and below separator line */
     display_fill_rect(0, y, LCD_WIDTH, 1, COLOR_GRAY);
     y += 5;

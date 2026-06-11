@@ -26,6 +26,7 @@ typedef struct {
     float solar_ring[SOLAR_RING_SIZE];
     uint32_t solar_ring_idx;
     uint32_t solar_ring_count;
+    int64_t  solar_last_rx_us;   // esp_timer_get_time() of last MQTT solar reading, 0 = never
 
     // hysteresis state for temp control
     bool temp_ok;   // false = too hot, must cool below temp_min before relay1 can use solar

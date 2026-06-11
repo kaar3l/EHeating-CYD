@@ -87,6 +87,8 @@ esp_err_t config_load(void)
     LOAD_FLT("temp_safe1", g_cfg.temp_safety1);
     LOAD_U8 ("rly2_man",   g_cfg.relay2_manual);
     { uint8_t v;  if (nvs_get_u8 (h, "lcd_bright",  &v) == ESP_OK) g_cfg.lcd_brightness = (int)v; }
+    LOAD_I32("lo_sensor",  g_cfg.last_lockout_sensor);
+    LOAD_STR("lo_time",    g_cfg.last_lockout_time);
     LOAD_I32("tc2_x0",   g_cfg.touch_x0);
     LOAD_I32("tc2_x319", g_cfg.touch_x319);
     LOAD_I32("tc2_y0",   g_cfg.touch_y0);
@@ -131,6 +133,8 @@ esp_err_t config_save(void)
     SAVE_FLT("temp_safe1", g_cfg.temp_safety1);
     SAVE_U8 ("rly2_man",   g_cfg.relay2_manual);
     nvs_set_u8(h, "lcd_bright", (uint8_t)g_cfg.lcd_brightness);
+    SAVE_I32("lo_sensor",  g_cfg.last_lockout_sensor);
+    SAVE_STR("lo_time",    g_cfg.last_lockout_time);
     SAVE_I32("tc2_x0",   g_cfg.touch_x0);
     SAVE_I32("tc2_x319", g_cfg.touch_x319);
     SAVE_I32("tc2_y0",   g_cfg.touch_y0);
