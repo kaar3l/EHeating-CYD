@@ -160,10 +160,11 @@ static esp_err_t status_handler(httpd_req_t *req)
                  g_cfg.last_lockout_sensor, g_cfg.last_lockout_time);
     }
 
-    char body[3000];
+    char body[3600];
     snprintf(body, sizeof(body),
         "<h2>EHeating Status</h2>"
-        "<p>WiFi: <b class='%s'>%s</b> (%s, %s) &nbsp; MQTT: <b class='%s'>%s</b></p>"
+        "<p>WiFi: <b id='wifis' class='%s'>%s</b> (<span id='wifiip'>%s</span>, <span id='wifissid'>%s</span>) "
+        "&nbsp; MQTT: <b id='mqtts' class='%s'>%s</b></p>"
         "<div id='lockmsg'>%s</div>"
         "<table>"
         "<tr><td>Sensor1 (water):</td><td><b id='t1'>%s</b></td></tr>"
@@ -194,6 +195,12 @@ static esp_err_t status_handler(httpd_req_t *req)
         "var r2=document.getElementById('r2');"
         "r2.textContent=d.r2?'ON':'OFF'; r2.className=d.r2?'ok':'err';"
         "document.getElementById('r2state').value=d.r2?'off':'on';"
+        "var ws=document.getElementById('wifis');"
+        "ws.textContent=d.wifi?'Connected':'Disconnected'; ws.className=d.wifi?'ok':'err';"
+        "document.getElementById('wifiip').textContent=d.ip;"
+        "document.getElementById('wifissid').textContent=d.ssid;"
+        "var ms=document.getElementById('mqtts');"
+        "ms.textContent=d.mqtt?'Connected':'Disconnected'; ms.className=d.mqtt?'ok':'err';"
         "var lm=document.getElementById('lockmsg');"
         "if(d.lock){lm.innerHTML=\"<p class='err'><b>!! SAFETY LOCKOUT - Sensor\"+d.lock_sensor+\" overheated !!</b></p>"
             "<form method='GET' action='/lockout/reset'><input type='submit' value='Reset Lockout'></form>\";}"
@@ -232,18 +239,26 @@ static esp_err_t status_json_handler(httpd_req_t *req)
     int   lock_sensor = g_state.lockout_sensor;
     bool  s1ok = g_state.sensor1_ok;
     bool  s2ok = g_state.sensor2_ok;
+    bool  mqtt = g_state.mqtt_connected;
+    bool  wifi = g_state.wifi_sta_connected;
     state_unlock();
 
-    char body[384];
+    char ip[20];
+    wifi_manager_get_ip(ip, sizeof(ip));
+
+    char body[512];
     snprintf(body, sizeof(body),
         "{\"t1\":%.1f,\"s1ok\":%s,\"t2\":%.1f,\"s2ok\":%s,"
         "\"sol\":%.0f,\"thr\":%.0f,\"r1\":%s,\"r2\":%s,"
         "\"lock\":%s,\"lock_sensor\":%d,"
-        "\"last_lock_sensor\":%d,\"last_lock_time\":\"%s\"}",
+        "\"last_lock_sensor\":%d,\"last_lock_time\":\"%s\","
+        "\"wifi\":%s,\"ip\":\"%s\",\"ssid\":\"%s\",\"mqtt\":%s}",
         t1, s1ok ? "true" : "false", t2, s2ok ? "true" : "false",
         sol, g_cfg.solar_threshold, r1 ? "true" : "false", r2 ? "true" : "false",
         lock ? "true" : "false", lock_sensor,
-        g_cfg.last_lockout_sensor, g_cfg.last_lockout_time);
+        g_cfg.last_lockout_sensor, g_cfg.last_lockout_time,
+        wifi ? "true" : "false", ip, g_cfg.wifi_ssid[0] ? g_cfg.wifi_ssid : "---",
+        mqtt ? "true" : "false");
 
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_sendstr(req, body);
