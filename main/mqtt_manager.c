@@ -17,7 +17,8 @@ static esp_mqtt_client_handle_t s_client = NULL;
 static void publish_task(void *arg)
 {
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(10000));  /* publish every 10 s */
+        int intv = g_cfg.mqtt_pub_interval > 0 ? g_cfg.mqtt_pub_interval : 60;
+        vTaskDelay(pdMS_TO_TICKS(intv * 1000));
         if (!s_client) continue;
 
         state_lock();
@@ -47,10 +48,10 @@ static void publish_task(void *arg)
             esp_mqtt_client_publish(s_client, g_cfg.pub_topic[PUB_SOLAR_THR], val, 0, 0, 0);
         }
         if (g_cfg.pub_en[PUB_RELAY1] && g_cfg.pub_topic[PUB_RELAY1][0]) {
-            esp_mqtt_client_publish(s_client, g_cfg.pub_topic[PUB_RELAY1], r1 ? "ON" : "OFF", 0, 0, 0);
+            esp_mqtt_client_publish(s_client, g_cfg.pub_topic[PUB_RELAY1], r1 ? "1" : "0", 0, 0, 0);
         }
         if (g_cfg.pub_en[PUB_RELAY2] && g_cfg.pub_topic[PUB_RELAY2][0]) {
-            esp_mqtt_client_publish(s_client, g_cfg.pub_topic[PUB_RELAY2], r2 ? "ON" : "OFF", 0, 0, 0);
+            esp_mqtt_client_publish(s_client, g_cfg.pub_topic[PUB_RELAY2], r2 ? "1" : "0", 0, 0, 0);
         }
     }
 }
@@ -107,11 +108,13 @@ static void publish_ha_discovery(void)
                 "\"dev\":{\"ids\":[\"%s\"],\"name\":\"EHeating\",\"mf\":\"DIY\",\"mdl\":\"ESP32-S3\"}}",
                 names[i], g_cfg.pub_topic[i], unit[i], dev_class[i], node_id, obj_id[i], node_id);
         } else {
+            const char *pl_on  = (i == PUB_RELAY1 || i == PUB_RELAY2) ? "1" : "ON";
+            const char *pl_off = (i == PUB_RELAY1 || i == PUB_RELAY2) ? "0" : "OFF";
             snprintf(payload, sizeof(payload),
-                "{\"name\":\"%s\",\"stat_t\":\"%s\",\"pl_on\":\"ON\",\"pl_off\":\"OFF\","
+                "{\"name\":\"%s\",\"stat_t\":\"%s\",\"pl_on\":\"%s\",\"pl_off\":\"%s\","
                 "\"uniq_id\":\"%s_%s\","
                 "\"dev\":{\"ids\":[\"%s\"],\"name\":\"EHeating\",\"mf\":\"DIY\",\"mdl\":\"ESP32-S3\"}}",
-                names[i], g_cfg.pub_topic[i], node_id, obj_id[i], node_id);
+                names[i], g_cfg.pub_topic[i], pl_on, pl_off, node_id, obj_id[i], node_id);
         }
 
         esp_mqtt_client_publish(s_client, topic, payload, 0, 1, 1); // QoS1, retain

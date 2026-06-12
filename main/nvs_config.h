@@ -19,6 +19,7 @@ typedef struct {
     char  mqtt_server[128];
     int   mqtt_port;
     char  mqtt_topic[128];
+    int   mqtt_pub_interval; // seconds between periodic publishes (default 60)
     char  ntp_server[64];
     char  tz[64];            // POSIX TZ string (local time + DST rule)
     float solar_threshold;   // watts; relay1 turns on above this

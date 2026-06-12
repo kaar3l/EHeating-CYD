@@ -13,6 +13,7 @@ void config_load_defaults(void)
 {
     memset(&g_cfg, 0, sizeof(g_cfg));
     g_cfg.mqtt_port       = 1883;
+    g_cfg.mqtt_pub_interval = 60;
     g_cfg.solar_threshold = 500.0f;
     g_cfg.temp_min        = 55.0f;
     g_cfg.temp_max        = 60.0f;
@@ -78,6 +79,7 @@ esp_err_t config_load(void)
     LOAD_STR("mqtt_srv",   g_cfg.mqtt_server);
     LOAD_I32("mqtt_port",  g_cfg.mqtt_port);
     LOAD_STR("mqtt_topic", g_cfg.mqtt_topic);
+    LOAD_I32("mqtt_intv",  g_cfg.mqtt_pub_interval);
     LOAD_STR("ntp_srv",    g_cfg.ntp_server);
     LOAD_STR("tz",         g_cfg.tz);
     LOAD_FLT("solar_thr",  g_cfg.solar_threshold);
@@ -124,6 +126,7 @@ esp_err_t config_save(void)
     SAVE_STR("mqtt_srv",   g_cfg.mqtt_server);
     SAVE_I32("mqtt_port",  g_cfg.mqtt_port);
     SAVE_STR("mqtt_topic", g_cfg.mqtt_topic);
+    SAVE_I32("mqtt_intv",  g_cfg.mqtt_pub_interval);
     SAVE_STR("ntp_srv",    g_cfg.ntp_server);
     SAVE_STR("tz",         g_cfg.tz);
     SAVE_FLT("solar_thr",  g_cfg.solar_threshold);

@@ -307,11 +307,12 @@ static esp_err_t mqtt_page_handler(httpd_req_t *req)
         "<label>Server<input name='srv' value='%s'></label>"
         "<label>Port<input name='port' value='%d' type='number'></label>"
         "<label>Subscribe Topic (incoming solar power W)<input name='topic' value='%s'></label>"
+        "<label>Publish Interval (seconds)<input name='intv' value='%d' type='number' min='1'></label>"
         "<h2>Publish Topics</h2>"
         "<table><tr><th>Channel</th><th>Enable</th><th>Topic</th></tr>",
         g_cfg.mqtt_enabled ? " selected" : "",
         g_cfg.mqtt_enabled ? "" : " selected",
-        g_cfg.mqtt_server, g_cfg.mqtt_port, g_cfg.mqtt_topic);
+        g_cfg.mqtt_server, g_cfg.mqtt_port, g_cfg.mqtt_topic, g_cfg.mqtt_pub_interval);
 
     for (int i = 0; i < PUB_COUNT; i++) {
         pos += snprintf(body + pos, sizeof(body) - pos,
@@ -337,16 +338,19 @@ static esp_err_t mqtt_save_handler(httpd_req_t *req)
     char body[1024];
     recv_body(req, body, sizeof(body));
 
-    char en[4], srv[128], port_s[8], topic[128];
+    char en[4], srv[128], port_s[8], topic[128], intv_s[8];
     get_field(body, "en",    en,    sizeof(en));
     get_field(body, "srv",   srv,   sizeof(srv));
     get_field(body, "port",  port_s,sizeof(port_s));
     get_field(body, "topic", topic, sizeof(topic));
+    get_field(body, "intv",  intv_s,sizeof(intv_s));
 
     g_cfg.mqtt_enabled = (en[0] == '1');
     strncpy(g_cfg.mqtt_server, srv,   sizeof(g_cfg.mqtt_server) - 1);
     strncpy(g_cfg.mqtt_topic,  topic, sizeof(g_cfg.mqtt_topic)  - 1);
     if (port_s[0]) g_cfg.mqtt_port = atoi(port_s);
+    if (intv_s[0]) g_cfg.mqtt_pub_interval = atoi(intv_s);
+    if (g_cfg.mqtt_pub_interval < 1) g_cfg.mqtt_pub_interval = 60;
 
     char key[8], val[128];
     for (int i = 0; i < PUB_COUNT; i++) {
